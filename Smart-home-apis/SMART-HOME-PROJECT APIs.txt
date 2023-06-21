@@ -1,6 +1,7 @@
 
-SMART-HOME PROJECT API ENDPOINT URLs
-------------------------------------
+-------------------------------------
+SMART-HOME PROJECT API ENDPOINT URLs  -----------------------------
+-------------------------------------
 
 NOTE:
    - The keywords are as maintained in initial firmware version.
