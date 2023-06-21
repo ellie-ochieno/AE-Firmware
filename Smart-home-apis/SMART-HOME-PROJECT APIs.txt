@@ -1,0 +1,142 @@
+
+SMART-HOME PROJECT API ENDPOINT URLs
+------------------------------------
+
+NOTE:
+   - The keywords are as maintained in initial firmware version.
+   - Can be queried.
+
+1. LED
+   - url: https://smart-home-iot.angazaelimu.com/api/led_state_control
+   - Sample server feedback:
+
+	{
+	  "led_control_state": "0",
+	  "led_blink_interval": "0",
+	  "led_blink_intensity": "0"
+	}
+
+2. DHT sensor
+   - url: https://smart-home-iot.angazaelimu.com/api/dht_data_insert
+   - Sample server feedback:
+
+	{
+	"temp_threshold": "28.00",
+	"humid_threshold": "49.00",
+	"humidity": "29",
+	"temperature": "44"
+	}
+
+3. Door state control
+   - Controlled by the push-button
+   - url: https://smart-home-iot.angazaelimu.com/api/door_state_control
+   - Sample data sent to the platform
+
+	{
+	  "pbtn_API_KEY":"YPSzv5wlGyHViohp2K",
+	  "pbtn_status":"0"
+	}
+
+   - "pbtn_status" can be either "1" or "0"
+
+   - Sample server feedback:
+
+	{
+	 "push_btn_state": "0",
+	}
+
+4. LDR sensor
+   - url: https://smart-home-iot.angazaelimu.com/api/ldr_state_update
+   - Sample data sent to the platform
+
+	{
+	  "ldr_sensor_API_KEY":"YPSzv5wlGyHViohp2K",
+	  "ldr_status":"0"
+	}
+
+   - "ldr_status" can be either "1" or "0"
+
+   - Sample server feedback:
+
+	{
+	"ldr_sensor_state": "0",
+	"ldr_threshold": "0.00",
+	}
+
+5. PIR sensor
+   - url: https://smart-home-iot.angazaelimu.com/api/pirsensor_state_update
+   - Sample data sent to the platform
+
+	{
+	  "pir_sensor_API_KEY":"YPSzv5wlGyHViohp2K",
+	  "pir_sensor_state":"0"
+	}
+
+   - "pir_sensor_state" can be either "1" or "0"
+
+   - Sample server feedback:
+
+	{
+	"pir_sensor_state": "1",
+	}
+
+
+6. RGBLED sensor
+   - url: https://smart-home-iot.angazaelimu.com/api/rgbled_state_control
+   - Sample data sent to the platform
+
+	{
+	  "rgbled_toggle_API_KEY":"YPSzv5wlGyHViohp2K"
+	}
+
+   - Created project API key
+
+   - Sample server feedback:
+
+	{
+	"toggle_state": "0",
+	"blink_interval": "0",
+	"rled_slider_val": "0",
+	"gled_slider_val": "0",
+	"bled_slider_val": "0"
+	}
+
+
+7. Rain sensor
+   - url: https://smart-home-iot.angazaelimu.com/api/rainsensor_state_update
+   - Sample data sent to the platform
+
+	{
+	"rain_sensor_API_KEY":"YPSzv5wlGyHViohp2K",
+	"rain_status":"1"
+	}
+
+   - "ldr_status" can be either "1" or "0"
+
+   - Created project API key
+
+   - Sample server feedback:
+
+	{
+	"rain_status":"1"
+	}
+
+8. Smoke sensor
+   - url: https://smart-home-iot.angazaelimu.com/api/smokesensor_state_update
+   - Sample data sent to the platform
+
+	{
+	"smoke_sensor_API_KEY":"YPSzv5wlGyHViohp2K",
+	"smoke_sensor_val":"320"
+	}
+
+   - "smoke_sensor_val" of range between 0 to 1023
+
+   - Sample server feedback:
+
+	{
+	"smoke_sensor_state": "1",
+	"smoke_threshold": 0
+	}
+
+   - "smoke_threshold" of range between 0 to 1023
