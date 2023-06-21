@@ -1,2 +1,4 @@
 # AE-Firmware
-Anza Elimu projects firmware
+Angaza Elimu projects firmware:
+  => Smart-home project
+     - Arduino support firmware
