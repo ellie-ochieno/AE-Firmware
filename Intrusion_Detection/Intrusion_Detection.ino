@@ -1,7 +1,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <Arduino_JSON.h>
-#include <ESP32Servo.h>
+//#include <ESP32Servo.h>
 #include <WiFiClientSecure.h>
 #include "secrets.h"
 #include "pin_configurations.h"
@@ -9,34 +9,65 @@
 int pinStateCurrent   = LOW;  // current state of pin
 int pinStatePrevious  = LOW;  // previous state of pin
 
-const char* URL="https://smart-home-iot.angazaelimu.com/api/pirsensor_state_update";
+const char* server_url="https://smart-home-iot.angazaelimu.com/api/pirsensor_state_update";
 
-WiFiClientSecure client;
+WiFiClientSecure *client = new WiFiClientSecure;
 HTTPClient https;
 String payload;
-String httpRequestData;
 int httpResponseCode;
+String httpRequestData;
 
 void setup() {
   Serial.begin(115200);
   pinMode(PIR_PIN, INPUT);  // set ESP32 pin to input mode to read value from OUTPUT pin of sensor
 
   WiFi.begin(SSID,PASSWORD);
-  while (WiFi.status() != WL_CONNECTED){
-    delay(1000);
-    Serial.println("Connecting to WiFi ...");
-  }
 
-  Serial.println("Connected to the WiFi network");
+  pinMode(ONBOARD_LED_PIN,OUTPUT);     //--> On Board LED port Direction output
+  digitalWrite(ONBOARD_LED_PIN, HIGH); //--> Turn off Led On Board
+
+  Serial.print("Connecting.");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    //----------------------------------------Make the On Board Flashing LED on the process of connecting to the wifi router.
+    digitalWrite(ONBOARD_LED_PIN, LOW);
+    delay(250);
+    digitalWrite(ONBOARD_LED_PIN, HIGH);
+    delay(250);
+    //----------------------------------------
+  }
+  //----------------------------------------
+  digitalWrite(ONBOARD_LED_PIN, LOW); //--> Turn off the On Board LED when it is connected to the wifi router.
+  //----------------------------------------If successfully connected to the wifi router, the IP Address that will be visited is displayed in the serial monitor
+  Serial.println("");
+  Serial.print("Successfully connected to : ");
+  Serial.println(SSID);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  Serial.println();
+  delay(1000);
+
+  // server initialization
+  Serial.println("Server started");
+  Serial.println(WiFi.localIP());
+  Serial.println("");
+  Serial.print("connecting...");
+  delay(1000);
 
 }
 
 void loop() {
+ if(client){
+    // set secure client via root cert
+    client->setCACert(root_cacert);
+    //create an HTTPClient instance
 
-    if(WiFi.status()== WL_CONNECTED){
+    //Initializing an HTTPS communication using the secure client
+    Serial.print("[HTTPS] begin...\n");
+    if(https.begin(*client, server_url)){
 
-      https.begin(client, URL);
-      httpGETRequest(URL);
+      httpGETRequest(server_url);
 
       pinStatePrevious = pinStateCurrent; // store old state
       pinStateCurrent = digitalRead(PIR_PIN);   // read new state
@@ -66,7 +97,13 @@ void loop() {
       }
 
     }
-
+    else {
+      Serial.printf("[HTTPS] Unable to connect\n");
+    }
+  }
+  else {
+    Serial.printf("[HTTPS] Unable to connect\n");
+  }
     delay(10000);
 }
 
@@ -92,6 +129,5 @@ void httpGETRequest(const char* serverName) {
     Serial.print("Error code: ");
     Serial.println(httpResponseCode);
   }
-
 
 }

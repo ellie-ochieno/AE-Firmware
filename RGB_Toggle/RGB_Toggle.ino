@@ -11,9 +11,15 @@
 #define pwm_resolution 8 // 8 bit resolution
 
 
-const char* URL="https://smart-home-iot.angazaelimu.com/api/rgbled_state_control";
+const char* server_url="https://smart-home-iot.angazaelimu.com/api/rgbled_state_control";
 
 String payload;
+WiFiClientSecure *client = new WiFiClientSecure;
+HTTPClient https;
+String httpRequestData;
+String json_data;
+int httpResponseCode= 0;
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
@@ -25,38 +31,80 @@ void setup() {
   ledcSetup(R_channel, pwm_Frequency, pwm_resolution);
   ledcSetup(G_channel, pwm_Frequency, pwm_resolution);
   ledcSetup(B_channel, pwm_Frequency, pwm_resolution);
+  
+  pinMode(ONBOARD_LED_PIN,OUTPUT);     //--> On Board LED port Direction output
+  digitalWrite(ONBOARD_LED_PIN, HIGH); //--> Turn off Led On Board
 
-  while (WiFi.status() != WL_CONNECTED){
-    delay(1000);
-    Serial.println("Connecting to WiFi ...");
+  // initialize wifi connection
+  Serial.print("Connecting.");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    //----------------------------------------Make the On Board Flashing LED on the process of connecting to the wifi router.
+    digitalWrite(ONBOARD_LED_PIN, LOW);
+    delay(250);
+    digitalWrite(ONBOARD_LED_PIN, HIGH);
+    delay(250);
+    //----------------------------------------
   }
+  //----------------------------------------
+  digitalWrite(ONBOARD_LED_PIN, LOW); //--> Turn off the On Board LED when it is connected to the wifi router.
+  //----------------------------------------If successfully connected to the wifi router, the IP Address that will be visited is displayed in the serial monitor
+  Serial.println("");
+  Serial.print("Successfully connected to : ");
+  Serial.println(SSID);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  Serial.println();
+  delay(1000);
 
-  Serial.println("Connected to the WiFi network");
+  // server initialization
+  Serial.println("Server started");
+  Serial.println(WiFi.localIP());
+  Serial.println("");
+  Serial.print("connecting...");
+  delay(1000);
 
 }
 
 void loop() {
+ if(client){
+    // set secure client via root cert
+    client->setCACert(root_cacert);
+    //create an HTTPClient instance
 
-    String rgbled_data= httpGETRequest(URL);
-    Serial.println(rgbled_data);
-
-    JSONVar reading=JSON.parse(rgbled_data);
-
-    // JSON.typeof(jsonVar) can be used to get the type of the var
-    if (JSON.typeof(reading) == "undefined") {
-      Serial.println("Parsing input failed!");
-      return;
+    //Initializing an HTTPS communication using the secure client
+    Serial.print("[HTTPS] begin...\n");
+    if(https.begin(*client, server_url)){
+  
+      String rgbled_data= httpGETRequest(server_url);
+      Serial.println(rgbled_data);
+  
+      JSONVar reading=JSON.parse(rgbled_data);
+  
+      // JSON.typeof(jsonVar) can be used to get the type of the var
+      if (JSON.typeof(reading) == "undefined") {
+        Serial.println("Parsing input failed!");
+        return;
+      }
+  
+      String ledValue=(const char*)(reading["toggle_state"]);
+      Serial.println(ledValue);
+      if (ledValue=="1"){
+        RGB_Color(255,78,98);
+        Serial.println("RGBLED ON");
+      }else if(ledValue=="0"){
+        RGB_Color(0,0,0);
+        Serial.println("RGBLED OFF");
+      }
     }
-
-    String ledValue=(const char*)(reading["toggle_state"]);
-    Serial.println(ledValue);
-    if (ledValue=="1"){
-      RGB_Color(255,78,98);
-      Serial.println("RGBLED ON");
-    }else if(ledValue=="0"){
-      RGB_Color(0,0,0);
-      Serial.println("RGBLED OFF");
+    else {
+      Serial.printf("[HTTPS] Unable to connect\n");
     }
+  } 
+  else {
+    Serial.printf("[HTTPS] Unable to connect\n");
+  }
 
   delay(100);
 
@@ -74,20 +122,15 @@ void loop() {
 //  GET request function
 String httpGETRequest(const char* serverName) {
 
-  WiFiClientSecure client;
-  HTTPClient https;
-
-  // Initialize http protocol
-  https.begin(client, serverName);
   //Specify content-type header
   https.addHeader("Content-Type", "application/x-www-form-urlencoded");
 
 
   //----------------------------------------GET HTTP Request
   // Prepare POST request data
-  String httpRequestData = "rgbled_toggle_API_KEY=" + String(API_KEY);
+  httpRequestData = "rgbled_toggle_API_KEY=" + String(API_KEY);
   // Send POST request
-  int httpResponseCode = https.POST(httpRequestData);
+  httpResponseCode = https.POST(httpRequestData);
   //----------------------------------------
 
   //----------------------------------------GET HTTP Request

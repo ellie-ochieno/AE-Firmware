@@ -11,9 +11,9 @@
 #define pwm_Frequency 5000 // pwm frequency
 #define pwm_resolution 8 // 8 bit resolution
 
-const char* URL="https://smart-home-iot.angazaelimu.com/api/rgbled_state_control";
+const char* server_url="https://smart-home-iot.angazaelimu.com/api/rgbled_state_control";
 
-WiFiClientSecure client;
+WiFiClientSecure *client = new WiFiClientSecure;
 HTTPClient https;
 String payload;
 
@@ -31,43 +31,84 @@ void setup() {
 
   WiFi.begin(SSID,PASSWORD);
 
-  while (WiFi.status() != WL_CONNECTED){
-    delay(1000);
-    Serial.println("Connecting to WiFi ...");
-  }
+  pinMode(ONBOARD_LED_PIN,OUTPUT);     //--> On Board LED port Direction output
+  digitalWrite(ONBOARD_LED_PIN, HIGH); //--> Turn off Led On Board
 
-  Serial.println("Connected to the WiFi network");
+  Serial.print("Connecting.");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    //----------------------------------------Make the On Board Flashing LED on the process of connecting to the wifi router.
+    digitalWrite(ONBOARD_LED_PIN, LOW);
+    delay(250);
+    digitalWrite(ONBOARD_LED_PIN, HIGH);
+    delay(250);
+    //----------------------------------------
+  }
+  //----------------------------------------
+  digitalWrite(ONBOARD_LED_PIN, LOW); //--> Turn off the On Board LED when it is connected to the wifi router.
+  //----------------------------------------If successfully connected to the wifi router, the IP Address that will be visited is displayed in the serial monitor
+  Serial.println("");
+  Serial.print("Successfully connected to : ");
+  Serial.println(SSID);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  Serial.println();
+  delay(1000);
+
+  // server initialization
+  Serial.println("Server started");
+  Serial.println(WiFi.localIP());
+  Serial.println("");
+  Serial.print("connecting...");
+  delay(1000);
 
 }
 
 void loop() {
-  // Your Domain name with URL path or IP address with path
-  https.begin(client, URL);
+ if(client){
+    // set secure client via root cert
+    client->setCACert(root_cacert);
+    //create an HTTPClient instance
 
-  //Get the threshold value
-  String result= httpGETRequest(URL);
-  Serial.println("The payload is: " +result);
-
-  //Get the threshold value
-  String rgbled_data= httpGETRequest(URL);
-
-  JSONVar json_interval=JSON.parse(rgbled_data);
-  Serial.println("The jsonvar is: "+json_interval);
-
-  int blink_interval=(const int)(json_interval["blink_interval"]);
-  Serial.println("Blink interval: "+ String(blink_interval));
-
-  // JSON.typeof(jsonVar) can be used to get the type of the var
-  if (JSON.typeof(json_interval) == "undefined") {
-    Serial.println("Parsing input failed!");
-    return;
+    //Initializing an HTTPS communication using the secure client
+    Serial.print("[HTTPS] begin...\n");
+    if(https.begin(*client, server_url)){
+      
+        //Get the threshold value
+        String result= httpGETRequest(server_url);
+        Serial.println("The payload is: " +result);
+      
+        //Get the threshold value
+        String rgbled_data= httpGETRequest(server_url);
+      
+        JSONVar json_interval=JSON.parse(rgbled_data);
+        Serial.println("The jsonvar is: "+json_interval);
+      
+        int blink_interval=(const int)(json_interval["blink_interval"]);
+        Serial.println("Blink interval: "+ String(blink_interval));
+      
+        // JSON.typeof(jsonVar) can be used to get the type of the var
+        if (JSON.typeof(json_interval) == "undefined") {
+          Serial.println("Parsing input failed!");
+          return;
+        }
+      
+        RGB_Color(100,200,100);
+        delay(blink_interval);
+        RGB_Color(0,0,0);
+        delay(blink_interval);
+        https.end();
+    }
+    else {
+      Serial.printf("[HTTPS] Unable to connect\n");
+    }
+  } 
+  else {
+    Serial.printf("[HTTPS] Unable to connect\n");
   }
-
-  RGB_Color(100,200,100);
-  delay(blink_interval);
-  RGB_Color(0,0,0);
-  delay(blink_interval);
-  https.end();
+  
+  delay(3000);
 
 }
 
@@ -89,7 +130,7 @@ String httpGETRequest(const char* serverName) {
   int httpResponseCode = https.POST(httpRequestData);
 
   //get the response
-  if (httpResponseCode == 200) { //initialize payload if GET data is available
+  if (httpResponseCode > 0) { //initialize payload if GET data is available
     Serial.print("HTTP Response code: ");
     Serial.println(httpResponseCode);
     payload=https.getString();

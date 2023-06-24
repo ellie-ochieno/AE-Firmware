@@ -11,13 +11,11 @@
 #include "secrets.h"
 #include "pin_configurations.h"
 
-#define TIMER_INTERRUPT_DEBUG       0
-#define ISR_SERVO_DEBUG             1
+#define TIMER_INTERRUPT_DEBUG  0
+#define ISR_SERVO_DEBUG     1
 
 // For ESP32 and ESP32_S2, select ESP32 timer number (0-3)
-#define USE_ESP32_TIMER_NO          3
-
-
+#define USE_ESP32_TIMER_NO  3
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define PWM_CHANNEL 0
@@ -28,7 +26,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 // Tone32 object for buzzer
 Tone32 tone32(BUZZER_PIN, PWM_CHANNEL);
 
-const char* URL="https://smart-home-iot.angazaelimu.com/api/door_state_control";
+const char* server_url="https://smart-home-iot.angazaelimu.com/api/door_state_control";
 int red_button_state;
 int green_button_state;
 int Red_num_time;
@@ -41,12 +39,12 @@ double right_tone_frequency;
 double wrong_tone_frequency;
 
 // Published values for SG90 servos; adjust if needed
-#define MIN_MICROS      544 //544
-#define MAX_MICROS      2450
+#define MIN_MICROS  544 //544
+#define MAX_MICROS  2450
 
 int servoIndex1  = -1;
 
-WiFiClientSecure client;
+WiFiClientSecure *client = new WiFiClientSecure;
 HTTPClient https;
 
 /*
@@ -197,101 +195,134 @@ void setup(){
 
   WiFi.begin(SSID,PASSWORD);
 
-  while (WiFi.status() != WL_CONNECTED){
-    delay(1000);
-    Serial.println("Connecting to WiFi ...");
-  }
+  pinMode(ONBOARD_LED_PIN,OUTPUT);     //--> On Board LED port Direction output
+  digitalWrite(ONBOARD_LED_PIN, HIGH); //--> Turn off Led On Board
 
-  Serial.println("Connected to the WiFi network");
+  Serial.print("Connecting.");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    //----------------------------------------Make the On Board Flashing LED on the process of connecting to the wifi router.
+    digitalWrite(ONBOARD_LED_PIN, LOW);
+    delay(250);
+    digitalWrite(ONBOARD_LED_PIN, HIGH);
+    delay(250);
+    //----------------------------------------
+  }
+  //----------------------------------------
+  digitalWrite(ONBOARD_LED_PIN, LOW); //--> Turn off the On Board LED when it is connected to the wifi router.
+  //----------------------------------------If successfully connected to the wifi router, the IP Address that will be visited is displayed in the serial monitor
+  Serial.println("");
+  Serial.print("Successfully connected to : ");
+  Serial.println(SSID);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  Serial.println();
+  delay(1000);
+
+  // server initialization
+  Serial.println("Server started");
+  Serial.println(WiFi.localIP());
+  Serial.println("");
+  Serial.print("connecting...");
+  delay(1000);
 
   pinMode(BUTTON_RED, INPUT);
   pinMode(BUTTON_GREEN, INPUT);
 }
 
-void loop()
-{
-    https.begin(client, URL);
-    // The green button is connected to the digital port D4,
-    //the program block outputs the state of the button,
-    //the high level "1" represents the button is not pressed,
-    //and the low level "0" represents the button is pressed
-    green_button_state = digitalRead(BUTTON_GREEN);
+void loop(){
+ if(client){
+    // set secure client via root cert
+    client->setCACert(root_cacert);
+    //create an HTTPClient instance
 
-    // The red button is connected to the digital port D5,
-    //the program block outputs the state of the button,
-    //the high level "1" represents the button is not pressed,
-    //and the low level "0" represents the button is pressed
-    red_button_state = digitalRead(BUTTON_RED);
+    //Initializing an HTTPS communication using the secure client
+    Serial.print("[HTTPS] begin...\n");
+    if(https.begin(*client, server_url)){
+
+      // The green button is connected to the digital port D4,
+      //the program block outputs the state of the button,
+      //the high level "1" represents the button is not pressed,
+      //and the low level "0" represents the button is pressed
+      green_button_state = digitalRead(BUTTON_GREEN);
+
+      // The red button is connected to the digital port D5,
+      //the program block outputs the state of the button,
+      //the high level "1" represents the button is not pressed,
+      //and the low level "0" represents the button is pressed
+      red_button_state = digitalRead(BUTTON_RED);
 
 
-    if ((green_button_state != 0) && (red_button_state == 0) )
-    {
-      Serial.println("The green button state is:");
-      Serial.println(green_button_state);
-      Serial.println("The red button state is:");
-      Serial.println(red_button_state);
-      delay(100);
-      green_button_state  = digitalRead(BUTTON_GREEN);
-      while ((green_button_state != 0) && (red_button_state == 0))
+      if ((green_button_state != 0) && (red_button_state == 0) )
       {
-        red_button_state = digitalRead(BUTTON_RED);
-        Red_num_time = Red_num_time + 1;
+        Serial.println("The green button state is:");
+        Serial.println(green_button_state);
+        Serial.println("The red button state is:");
+        Serial.println(red_button_state);
         delay(100);
+        green_button_state  = digitalRead(BUTTON_GREEN);
+        while ((green_button_state != 0) && (red_button_state == 0))
+        {
+          red_button_state = digitalRead(BUTTON_RED);
+          Red_num_time = Red_num_time + 1;
+          delay(100);
+        }
+
+      }
+      if ((Red_num_time > 1) && (Red_num_time < 5))
+      {
+        //key_voice();
+        password = String(password) + String(".");
+        display.clearDisplay();
+        display.setTextColor(WHITE);
+        display.setTextSize(1);
+        display.setCursor(0,5);
+        display.print("Password :");
+        display.setTextSize(2);
+        display.setCursor(28,20);
+        display.print(password);
+        display.display();
+
+      }
+      if (Red_num_time > 5)
+      {
+        //key_voice();
+        password = String(password) + String("-");
+        display.clearDisplay();
+        display.setTextColor(WHITE);
+        display.setTextSize(1);
+        display.setCursor(0,5);
+        display.print("Password :");
+        display.setTextSize(2);
+        display.setCursor(20,20);
+        display.print(password);
+        display.display();
+
       }
 
+      if ((password.length() == 4)||(password.length() > 4))
+      {
+        password_length_flag = 1;
+      }
+
+      switch (password_length_flag)
+      {
+        case 0:
+         password_length_flag = 0;
+        break;
+        case 1:
+          Password_Confirmation();
+          password_length_flag = 0;
+          Serial.println("Finished Password Confirmation");
+        break;
+      }
+
+
+      Red_num_time = 0;
+      Serial.println("Gotten to the end of the loop");
+      Serial.println(password);
     }
-    if ((Red_num_time > 1) && (Red_num_time < 5))
-    {
-      //key_voice();
-      password = String(password) + String(".");
-      display.clearDisplay();
-      display.setTextColor(WHITE);
-      display.setTextSize(1);
-      display.setCursor(0,5);
-      display.print("Password :");
-      display.setTextSize(2);
-      display.setCursor(28,20);
-      display.print(password);
-      display.display();
-
-    }
-    if (Red_num_time > 5)
-    {
-      //key_voice();
-      password = String(password) + String("-");
-      display.clearDisplay();
-      display.setTextColor(WHITE);
-      display.setTextSize(1);
-      display.setCursor(0,5);
-      display.print("Password :");
-      display.setTextSize(2);
-      display.setCursor(20,20);
-      display.print(password);
-      display.display();
-
-    }
-
-    if ((password.length() == 4)||(password.length() > 4))
-    {
-      password_length_flag = 1;
-    }
-
-    switch (password_length_flag)
-    {
-      case 0:
-       password_length_flag = 0;
-      break;
-      case 1:
-        Password_Confirmation();
-        password_length_flag = 0;
-        Serial.println("Finished Password Confirmation");
-      break;
-    }
-
-
-    Red_num_time = 0;
-    Serial.println("Gotten to the end of the loop");
-    Serial.println(password);
 
     //delay(5000);
 }

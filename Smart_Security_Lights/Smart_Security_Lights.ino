@@ -44,9 +44,9 @@ static const i2s_pin_config_t pin_config = {
     .data_in_num = I2S_SD                  // DOUT
 };
 
-const char* URL="https://smart-home-iot.angazaelimu.com/api/ldr_state_update";
+const char* server_url="https://smart-home-iot.angazaelimu.com/api/ldr_state_update";
 
-WiFiClientSecure client;
+WiFiClientSecure *client = new WiFiClientSecure;
 HTTPClient https;
 
 void setup() {
@@ -63,11 +63,39 @@ void setup() {
 
   //setting up the WiFi
   WiFi.begin(SSID,PASSWORD);
-  while (WiFi.status() != WL_CONNECTED){
-    delay(1000);
-    Serial.println("Connecting to WiFi ...");
+  
+  pinMode(ONBOARD_LED_PIN,OUTPUT);     //--> On Board LED port Direction output
+  digitalWrite(ONBOARD_LED_PIN, HIGH); //--> Turn off Led On Board
+
+  // initialize wifi connection
+  Serial.print("Connecting.");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    //----------------------------------------Make the On Board Flashing LED on the process of connecting to the wifi router.
+    digitalWrite(ONBOARD_LED_PIN, LOW);
+    delay(250);
+    digitalWrite(ONBOARD_LED_PIN, HIGH);
+    delay(250);
+    //----------------------------------------
   }
-  Serial.println("Connected to the WiFi network");
+  //----------------------------------------
+  digitalWrite(ONBOARD_LED_PIN, LOW); //--> Turn off the On Board LED when it is connected to the wifi router.
+  //----------------------------------------If successfully connected to the wifi router, the IP Address that will be visited is displayed in the serial monitor
+  Serial.println("");
+  Serial.print("Successfully connected to : ");
+  Serial.println(SSID);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  Serial.println();
+  delay(1000);
+
+  // server initialization
+  Serial.println("Server started");
+  Serial.println(WiFi.localIP());
+  Serial.println("");
+  Serial.print("connecting...");
+  delay(1000);
 
   // Setup the LED channels
   ledcSetup(REDCHANNEL, FREQUENCY, RESOLUTION);
@@ -84,105 +112,118 @@ void setup() {
 }
 
 void loop() {
+ if(client){
+    // set secure client via root cert
+    client->setCACert(root_cacert);
+    //create an HTTPClient instance
 
-  https.begin(client, URL);
+    //Initializing an HTTPS communication using the secure client
+    Serial.print("[HTTPS] begin...\n");
+    if(https.begin(*client, server_url)){
 
-  size_t bytes_read=0;
-  i2s_read(i2s_num, &audio_buf, BUFLEN, &bytes_read, portMAX_DELAY);
-  int32_t cleanBuf[BUFLEN / 2] {0};
-  int cleanBufIdx = 0;
-  for (int i = 0; i < BUFLEN; i++)
-  {
-    if (audio_buf[i] != 0)    // Exclude values from other channel
-    {
-        cleanBuf[cleanBufIdx] = audio_buf[i] >> 14;
-        cleanBufIdx++;
-    }
-  }
-  float meanval = 0;
-  int volCount = 0;
-  for (int i=0; i < BUFLEN / 2; i++)
-  {
-       if (cleanBuf[i] != 0)
-       {
-        meanval += cleanBuf[i];
-        volCount++;
+      size_t bytes_read=0;
+      i2s_read(i2s_num, &audio_buf, BUFLEN, &bytes_read, portMAX_DELAY);
+      int32_t cleanBuf[BUFLEN / 2] {0};
+      int cleanBufIdx = 0;
+      for (int i = 0; i < BUFLEN; i++)
+      {
+        if (audio_buf[i] != 0)    // Exclude values from other channel
+        {
+            cleanBuf[cleanBufIdx] = audio_buf[i] >> 14;
+            cleanBufIdx++;
+        }
+      }
+      float meanval = 0;
+      int volCount = 0;
+      for (int i=0; i < BUFLEN / 2; i++)
+      {
+         if (cleanBuf[i] != 0)
+         {
+          meanval += cleanBuf[i];
+          volCount++;
+         }
+      }
+      meanval /= volCount;
+    
+      // subtract it from all sapmles to get a 'normalized' output
+      for (int i=0; i< volCount; i++)
+      {
+          cleanBuf[i] -= meanval;
+      }
+    
+      // find the 'peak to peak' max
+      float maxsample, minsample;
+      minsample = 100000;
+      maxsample = -100000;
+      for (int i=0; i<volCount; i++) {
+        minsample = _min(minsample, cleanBuf[i]);
+        maxsample = _max(maxsample, cleanBuf[i]);
+      }
+    
+      loudness=maxsample - minsample;
+    
+      //Get the threshold value
+      String ldr_data = httpGETRequest(server_url);
+      JSONVar json_threshold=JSON.parse(ldr_data);
+    
+      // validate server Response
+      if (JSON.typeof(json_threshold) == "undefined") {
+        Serial.println("Parsing input failed!");
+        return;
+      }
+      int ldr_threshold=(const int)(json_threshold["ldr_threshold"]);
+    
+      Serial.println("LDR set treshold value: " + String(ldr_threshold));
+    
+      //Check the LDR reading
+      lightVal = analogRead(LDR_PIN);
+    
+      if (lightVal>ldr_threshold){
+    
+          Serial.println(String(loudness));
+    
+          // if mean is greater than 1000 and LDR value is greater than the threshold,
+          //turn on the LED
+    
+          if (loudness>2000){
+             setColor(100,150,130);
+             https.addHeader("Content-Type", "application/x-www-form-urlencoded");
+             // Prepare POST request data
+             httpRequestData = "ldr_sensor_API_KEY=" + String(API_KEY) + "&led_status=1" + "&ldr_status=1";
+             httpResponseCode=https.POST(httpRequestData);
+             https.end();
+             return;
+          }
+          else{
+             setColor(0,0,0);
+             https.addHeader("Content-Type", "application/x-www-form-urlencoded");
+             int httpResponseCode=https.POST("ldr_sensor_API_KEY=" + String(API_KEY) + "&led_status=0"+ "&ldr_status=1");
+             //Serial.print("HTTP Response code: ");
+             //Serial.println(httpResponseCode);
+             https.end();
+             return;
+          }
        }
-  }
-  meanval /= volCount;
-
-  // subtract it from all sapmles to get a 'normalized' output
-  for (int i=0; i< volCount; i++)
-  {
-      cleanBuf[i] -= meanval;
-  }
-
-  // find the 'peak to peak' max
-  float maxsample, minsample;
-  minsample = 100000;
-  maxsample = -100000;
-  for (int i=0; i<volCount; i++) {
-    minsample = _min(minsample, cleanBuf[i]);
-    maxsample = _max(maxsample, cleanBuf[i]);
-  }
-
-  loudness=maxsample - minsample;
-
-  //Get the threshold value
-  String ldr_data = httpGETRequest(URL);
-  JSONVar json_threshold=JSON.parse(ldr_data);
-
-  // validate server Response
-  if (JSON.typeof(json_threshold) == "undefined") {
-    Serial.println("Parsing input failed!");
-    return;
-  }
-  int ldr_threshold=(const int)(json_threshold["ldr_threshold"]);
-
-  Serial.println("LDR set treshold value: " + String(ldr_threshold));
-
-  //Check the LDR reading
-  lightVal = analogRead(LDR_PIN);
-
-  if (lightVal>ldr_threshold){
-
-      Serial.println(String(loudness));
-
-      // if mean is greater than 1000 and LDR value is greater than the threshold,
-      //turn on the LED
-
-      if (loudness>2000){
-         setColor(100,150,130);
-         https.addHeader("Content-Type", "application/x-www-form-urlencoded");
-         // Prepare POST request data
-         httpRequestData = "ldr_sensor_API_KEY=" + String(API_KEY) + "&led_status=1" + "&ldr_status=1";
-         httpResponseCode=https.POST(httpRequestData);
-         https.end();
-         return;
-      }
+    
       else{
-         setColor(0,0,0);
-         https.addHeader("Content-Type", "application/x-www-form-urlencoded");
-         int httpResponseCode=https.POST("ldr_sensor_API_KEY=" + String(API_KEY) + "&led_status=0"+ "&ldr_status=1");
-         //Serial.print("HTTP Response code: ");
-         //Serial.println(httpResponseCode);
-         https.end();
-         return;
+          setColor(0,0,0);
+          https.addHeader("Content-Type", "application/x-www-form-urlencoded");
+          int httpResponseCode=https.POST("ldr_sensor_API_KEY=" + String(API_KEY) + "&led_status=0" + "&ldr_status=0");
+          //Serial.print("HTTP Response code: ");
+          //Serial.println(httpResponseCode);
+          https.end();
+          return;
+    
       }
-   }
-
-  else{
-      setColor(0,0,0);
-      https.addHeader("Content-Type", "application/x-www-form-urlencoded");
-      int httpResponseCode=https.POST("ldr_sensor_API_KEY=" + String(API_KEY) + "&led_status=0" + "&ldr_status=0");
-      //Serial.print("HTTP Response code: ");
-      //Serial.println(httpResponseCode);
-      https.end();
-      return;
-
     }
-
-
+    else {
+      Serial.printf("[HTTPS] Unable to connect\n");
+    }
+  } 
+  else {
+    Serial.printf("[HTTPS] Unable to connect\n");
+  }
+  delay(1000);
 }
 
 void setColor(int R, int G, int B) {
@@ -199,7 +240,7 @@ String httpGETRequest(const char* serverName) {
   //Specify content-type header
   https.addHeader("Content-Type", "application/x-www-form-urlencoded");
   // Prepare POST request data
-  httpRequestData = "ldr_sensor_API_KEY=" + String(API_KEY);
+  httpRequestData = "ldr_sensor_API_KEY=" + String(API_KEY) + "";
   // Send POST request
   httpResponseCode = https.POST(httpRequestData);
 

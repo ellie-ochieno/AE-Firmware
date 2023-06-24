@@ -11,9 +11,15 @@
 #define pwm_resolution 8 // 8 bit resolution
 
 
-const char* URL="https://smart-home-iot.angazaelimu.com/api/rgbled_state_control";
+const char* server_url="https://smart-home-iot.angazaelimu.com/api/rgbled_state_control";
 
+WiFiClientSecure *client = new WiFiClientSecure;
+HTTPClient https;
 String payload;
+String httpRequestData;
+String json_data;
+int httpResponseCode= 0;
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
@@ -26,39 +32,81 @@ void setup() {
   ledcSetup(G_channel, pwm_Frequency, pwm_resolution);
   ledcSetup(B_channel, pwm_Frequency, pwm_resolution);
 
-  while (WiFi.status() != WL_CONNECTED){
-    delay(1000);
-    Serial.println("Connecting to WiFi ...");
-  }
+  pinMode(ONBOARD_LED_PIN,OUTPUT);     //--> On Board LED port Direction output
+  digitalWrite(ONBOARD_LED_PIN, HIGH); //--> Turn off Led On Board
 
-  Serial.println("Connected to the WiFi network");
+  // initialize wifi connection
+  Serial.print("Connecting.");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    //----------------------------------------Make the On Board Flashing LED on the process of connecting to the wifi router.
+    digitalWrite(ONBOARD_LED_PIN, LOW);
+    delay(250);
+    digitalWrite(ONBOARD_LED_PIN, HIGH);
+    delay(250);
+    //----------------------------------------
+  }
+  //----------------------------------------
+  digitalWrite(ONBOARD_LED_PIN, LOW); //--> Turn off the On Board LED when it is connected to the wifi router.
+  //----------------------------------------If successfully connected to the wifi router, the IP Address that will be visited is displayed in the serial monitor
+  Serial.println("");
+  Serial.print("Successfully connected to : ");
+  Serial.println(SSID);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  Serial.println();
+  delay(1000);
+
+  // server initialization
+  Serial.println("Server started");
+  Serial.println(WiFi.localIP());
+  Serial.println("");
+  Serial.print("connecting...");
+  delay(1000);
 
 }
 
 void loop() {
+ if(client){
+    // set secure client via root cert
+    client->setCACert(root_cacert);
+    //create an HTTPClient instance
 
-    String rgbled_data= httpGETRequest(URL);
-    Serial.println(rgbled_data);
+    //Initializing an HTTPS communication using the secure client
+    Serial.print("[HTTPS] begin...\n");
+    if(https.begin(*client, server_url)){
+  
+      String rgbled_data= httpGETRequest(server_url);
+      Serial.println(rgbled_data);
+  
+      JSONVar reading=JSON.parse(rgbled_data);
+  
+      // JSON.typeof(jsonVar) can be used to get the type of the var
+      if (JSON.typeof(reading) == "undefined") {
+        Serial.println("Parsing input failed!");
+        return;
+      }
+  
+      int redValue=(const int)(reading["rled_slider_val"]);
+      Serial.println("rled blink value"+ String(redValue));
+      int greenValue=(const int)(reading["gled_slider_val"]);
+      Serial.println("gled blink value"+ String(greenValue));
+      int blueValue=(const int)(reading["bled_slider_val"]);
+      Serial.println("bled blink value"+ String(blueValue));
+  
+      // invoke RGB LED lighting
+      RGB_Color(redValue,greenValue,blueValue);
 
-    JSONVar reading=JSON.parse(rgbled_data);
-
-    // JSON.typeof(jsonVar) can be used to get the type of the var
-    if (JSON.typeof(reading) == "undefined") {
-      Serial.println("Parsing input failed!");
-      return;
     }
-
-    int redValue=(const int)(reading["rled_slider_val"]);
-    Serial.println("rled blink value"+ String(redValue));
-    int greenValue=(const int)(reading["gled_slider_val"]);
-    Serial.println("gled blink value"+ String(greenValue));
-    int blueValue=(const int)(reading["bled_slider_val"]);
-    Serial.println("bled blink value"+ String(blueValue));
-
-    // invoke RGB LED lighting
-    RGB_Color(redValue,greenValue,blueValue);
-
-
+    else {
+      Serial.printf("[HTTPS] Unable to connect\n");
+    }
+  } 
+  else {
+    Serial.printf("[HTTPS] Unable to connect\n");
+  }
+  
   delay(100);
 
 }
@@ -86,9 +134,9 @@ String httpGETRequest(const char* serverName) {
 
   //---------------GET HTTP Request
   // Prepare POST request data
-  String httpRequestData = "rgbled_toggle_API_KEY=" + String(API_KEY);
+  httpRequestData = "rgbled_toggle_API_KEY=" + String(API_KEY);
   // Send POST request
-  int httpResponseCode = https.POST(httpRequestData);
+  httpResponseCode = https.POST(httpRequestData);
 
 
   if (httpResponseCode > 0) {
