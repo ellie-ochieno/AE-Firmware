@@ -1,6 +1,6 @@
 #include <DHT.h>
 #include <WiFi.h>
-#include <HTTPClient.h>
+//#include <HTTPClient.h>
 #include <Arduino_JSON.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>

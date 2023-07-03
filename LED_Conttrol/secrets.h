@@ -1,11 +1,16 @@
-#define SSID ""
-#define PASSWORD ""
-#define API_KEY  ""
+/*
+ * Connection credentials
+*/
+
+#define SSID ""	      // WiFi network name
+#define PASSWORD "" // WiFi password
+String apiKeyValue = "";
+
 /*
  * server auth CA certificate key
  * ------DO NOT EDIT--------
  */
-const char* root_cacert = \
+const char* test_root_ca = \
 "-----BEGIN CERTIFICATE-----\n" \
 "MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw\n" \
 "TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh\n" \

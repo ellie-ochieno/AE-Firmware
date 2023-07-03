@@ -78,7 +78,7 @@ void loop() {
         //sending the data to the site
         https.addHeader("Content-Type", "application/x-www-form-urlencoded");
         // Prepare POST request data
-        httpRequestData = "pir_sensor_API_KEY=" + String(API_KEY) + "&pir_status=1";
+        httpRequestData = "pir_sensor_API_KEY=" + String(API_KEY) + "&pir_status=" + "1" + "";
         httpResponseCode=https.POST(httpRequestData);
 
         Serial.print("HTTP Response code: ");
