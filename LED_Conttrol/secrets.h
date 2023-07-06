@@ -1,7 +1,6 @@
 /*
  * Connection credentials
 */
-
 #define SSID ""
 #define PASSWORD ""
 #define apiKeyValue ""
