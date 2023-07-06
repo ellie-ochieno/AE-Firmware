@@ -76,25 +76,25 @@ void loop() {
     //Initializing an HTTPS communication using the secure client
     Serial.print("[HTTPS] begin...\n");
     if(https.begin(*client, server_url)){
-  
+
       String rgbled_data= httpGETRequest(server_url);
       Serial.println(rgbled_data);
-  
+
       JSONVar reading=JSON.parse(rgbled_data);
-  
+
       // JSON.typeof(jsonVar) can be used to get the type of the var
       if (JSON.typeof(reading) == "undefined") {
         Serial.println("Parsing input failed!");
         return;
       }
-  
+
       int redValue=(const int)(reading["rled_slider_val"]);
       Serial.println("rled blink value"+ String(redValue));
       int greenValue=(const int)(reading["gled_slider_val"]);
       Serial.println("gled blink value"+ String(greenValue));
       int blueValue=(const int)(reading["bled_slider_val"]);
       Serial.println("bled blink value"+ String(blueValue));
-  
+
       // invoke RGB LED lighting
       RGB_Color(redValue,greenValue,blueValue);
 
@@ -102,11 +102,11 @@ void loop() {
     else {
       Serial.printf("[HTTPS] Unable to connect\n");
     }
-  } 
+  }
   else {
     Serial.printf("[HTTPS] Unable to connect\n");
   }
-  
+
   delay(100);
 
 }
@@ -131,13 +131,11 @@ String httpGETRequest(const char* serverName) {
   //Specify content-type header
   https.addHeader("Content-Type", "application/x-www-form-urlencoded");
 
-
   //---------------GET HTTP Request
   // Prepare POST request data
   httpRequestData = "rgbled_toggle_API_KEY=" + String(API_KEY);
   // Send POST request
   httpResponseCode = https.POST(httpRequestData);
-
 
   if (httpResponseCode > 0) {
     //initialize payload if GET data is available

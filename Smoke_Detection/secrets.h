@@ -1,6 +1,6 @@
-#define SSID "geviton_wireless"
-#define PASSWORD "1234ninye#"
-#define API_KEY "7HQJM49R8JAPR"
+#define SSID ""
+#define PASSWORD ""
+#define API_KEY ""
                                   
 /*
  * server auth CA certificate key

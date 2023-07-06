@@ -145,7 +145,7 @@ String httpGETRequest(const char* serverName) {
 
   //----------------------------------------GET HTTP Request
   // Prepare POST request initialize
-  httpRequestData = "ledctrl_API_KEY=" + apiKeyValue + "";
+  httpRequestData = "ledctrl_API_KEY=" + String(apiKeyValue) + "";
   // Send POST request
   httpResponseCode = https.POST(httpRequestData);
   Serial.println("");

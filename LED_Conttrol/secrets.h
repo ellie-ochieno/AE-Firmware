@@ -2,9 +2,9 @@
  * Connection credentials
 */
 
-#define SSID ""	      // WiFi network name
-#define PASSWORD "" // WiFi password
-String apiKeyValue = "";
+#define SSID ""
+#define PASSWORD ""
+#define apiKeyValue ""
 
 /*
  * server auth CA certificate key
