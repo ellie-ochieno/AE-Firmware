@@ -1,51 +1,60 @@
-#include <WiFi.h>
-#include <HTTPClient.h>
-#include <Arduino_JSON.h>
+/*
+* SMART DOOR CONTROL-------------------
+* Use PUSH BUTTONS:
+*  -> Control door opening
+*     - Use push buttons for chararcters input
+* AMGAZA ELIMU - SH.PROJECT V2.0 / 023
+* ----------------------------------------
+*/
+//----------------------------------------Support libraries and sensor parameters.
 #include <SPI.h>
 #include <Wire.h>
+#include <WiFi.h>
+#include "secrets.h"
+#include "Tone32.hpp"
+#include <HTTPClient.h>
+#include <Arduino_JSON.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <WiFiClientSecure.h>
-#include "Tone32.hpp"
-#include "ESP32_New_ISR_Servo.h"
-#include "secrets.h"
 #include "pin_configurations.h"
+#include "ESP32_New_ISR_Servo.h"
 
 #define TIMER_INTERRUPT_DEBUG  0
-#define ISR_SERVO_DEBUG     1
-
+#define ISR_SERVO_DEBUG   1
 // For ESP32 and ESP32_S2, select ESP32 timer number (0-3)
 #define USE_ESP32_TIMER_NO  3
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define PWM_CHANNEL 0
-
-// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-
-// Tone32 object for buzzer
-Tone32 tone32(BUZZER_PIN, PWM_CHANNEL);
-
-const char* server_url="https://smart-home-iot.angazaelimu.com/api/door_state_control";
-int red_button_state;
-int green_button_state;
-int Red_num_time;
-String password;
-int door_flag;
-String payload;
-int key_door_flag;
-int password_length_flag;
-double right_tone_frequency;
-double wrong_tone_frequency;
-
 // Published values for SG90 servos; adjust if needed
 #define MIN_MICROS  544 //544
 #define MAX_MICROS  2450
 
-int servoIndex1  = -1;
+// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+// Tone32 object for buzzer
+Tone32 tone32(BUZZER_PIN, PWM_CHANNEL);
+//----------------------------------------
 
-WiFiClientSecure *client = new WiFiClientSecure;
+//----------------------------------------Control variables.
+const char* server_url="https://smart-home-iot.angazaelimu.com/api/door_state_control";
+int door_flag;
+String payload;
+String password;
 HTTPClient https;
+int Red_num_time;
+int key_door_flag;
+int httpResponseCode;
+int red_button_state;
+int servoIndex1  = -1;
+String httpRequestData;
+int green_button_state;
+int password_length_flag;
+double right_tone_frequency;
+double wrong_tone_frequency;
+WiFiClientSecure *client = new WiFiClientSecure;
+//----------------------------------------
 
 /*
  * After completing the password input, if the green button is pressed,
@@ -147,25 +156,22 @@ void Password_Confirmation()
         display.setCursor(0,28);
         display.print("Smart Home ");
         display.display();
-
       }
-
   }
 }
-
 
 void setup(){
   Serial.begin(115200);
   while (!Serial);
     delay(500);
 
+  // controls init
   Red_num_time = 0;
   password = "";
   key_door_flag = 0;
   password_length_flag = 0;
   wrong_tone_frequency = 600;
   right_tone_frequency = 1200;
-
 
   //Select ESP32 timer USE_ESP32_TIMER_NO
   ESP32_ISR_Servos.useTimer(USE_ESP32_TIMER_NO);
@@ -232,6 +238,18 @@ void setup(){
 }
 
 void loop(){
+  // The green button is connected to the digital port D4,
+  //the program block outputs the state of the button,
+  //the high level "1" represents the button is not pressed,
+  //and the low level "0" represents the button is pressed
+  green_button_state = digitalRead(BUTTON_GREEN);
+
+  // The red button is connected to the digital port D5,
+  //the program block outputs the state of the button,
+  //the high level "1" represents the button is not pressed,
+  //and the low level "0" represents the button is pressed
+  red_button_state = digitalRead(BUTTON_RED);
+
  if(client){
     // set secure client via root cert
     client->setCACert(root_cacert);
@@ -240,20 +258,9 @@ void loop(){
     //Initializing an HTTPS communication using the secure client
     Serial.print("[HTTPS] begin...\n");
     if(https.begin(*client, server_url)){
-
-      // The green button is connected to the digital port D4,
-      //the program block outputs the state of the button,
-      //the high level "1" represents the button is not pressed,
-      //and the low level "0" represents the button is pressed
-      green_button_state = digitalRead(BUTTON_GREEN);
-
-      // The red button is connected to the digital port D5,
-      //the program block outputs the state of the button,
-      //the high level "1" represents the button is not pressed,
-      //and the low level "0" represents the button is pressed
-      red_button_state = digitalRead(BUTTON_RED);
-
-
+      // call http server handler function
+      httpGETRequest(server_url);
+      
       if ((green_button_state != 0) && (red_button_state == 0) )
       {
         Serial.println("The green button state is:");
@@ -268,7 +275,6 @@ void loop(){
           Red_num_time = Red_num_time + 1;
           delay(100);
         }
-
       }
       if ((Red_num_time > 1) && (Red_num_time < 5))
       {
@@ -283,7 +289,6 @@ void loop(){
         display.setCursor(28,20);
         display.print(password);
         display.display();
-
       }
       if (Red_num_time > 5)
       {
@@ -298,7 +303,6 @@ void loop(){
         display.setCursor(20,20);
         display.print(password);
         display.display();
-
       }
 
       if ((password.length() == 4)||(password.length() > 4))
@@ -318,44 +322,49 @@ void loop(){
         break;
       }
 
-
       Red_num_time = 0;
       Serial.println("Gotten to the end of the loop");
       Serial.println(password);
     }
-
-    //delay(5000);
+    else {
+      Serial.printf("[HTTPS] Unable to connect\n");
+    }
+  }
+  else {
+    Serial.printf("[HTTPS] Unable to connect\n");
+  }
+  // wait a 2 seconds between readings
+  delay(20);
 }
 
 
 //  GET request function
 String httpGETRequest(const char* serverName) {
-
-  // Initialize http protocol
-
   //Specify content-type header
   https.addHeader("Content-Type", "application/x-www-form-urlencoded");
-  // Prepare POST request data
-  String httpRequestData = "pbtn_API_KEY=" + String(API_KEY);
 
+  //----------------------------------------Prepare HTTP Request
+  httpRequestData = "pbtn_API_KEY=" + String(API_KEY) + "&pbtn_status=" + String(password_length_flag) + "";
   // Send POST request
-  int httpResponseCode = https.POST(httpRequestData);
+  httpResponseCode = https.POST(httpRequestData);
+  Serial.print("\nData request: ");
+  Serial.print(httpRequestData);
+  Serial.println("");
+  //----------------------------------------
 
-
-  //get the response
+  //----------------------------------------GET HTTP Request
   if (httpResponseCode == 200) { //initialize payload if GET data is available
     Serial.print("HTTP Response code: ");
     Serial.println(httpResponseCode);
-    //payload=https.getString();
-    //Serial.println(payload);
-
+    payload = https.getString();
   }
-  else {
-    Serial.print("HTTP Response code: ");
-    Serial.println(httpResponseCode);
+  else {                      //error if no GET data
     Serial.print("Error code: ");
     Serial.println(httpResponseCode);
   }
+  // Free resources
+  https.end();
 
-
+  return payload;
+  //----------------------------------------
 }

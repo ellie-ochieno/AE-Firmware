@@ -2,7 +2,7 @@
 #define WATER_LEVEL_PIN 5
 #define LDR_PIN 6
 #define DHT_PIN 7
-#define ONBOARD_LED_PIN 9 
+#define ONBOARD_LED_PIN 2
 #define BUZZER_PIN 15
 #define MQ2_PIN 34
 #define INA_PIN 35

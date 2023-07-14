@@ -1,27 +1,42 @@
+/*
+* RGBLED CONTROL-------------------
+* Use RGBLED:
+*  -> Control remotely
+*     - Blink using platform set interval
+* AMGAZA ELIMU - SH.PROJECT V2.0 / 023
+* ----------------------------------------
+*/
+//----------------------------------------Support libraries and sensor parameters.
 #include <WiFi.h>
+#define R_channel 0
+#define G_channel 1
+#define B_channel 2
+#include "secrets.h"
 #include <HTTPClient.h>
 #include <Arduino_JSON.h>
 //#include <ESP32Servo.h>
 #include <WiFiClientSecure.h>
-#include "secrets.h"
 #include "pin_configurations.h"
-#define R_channel 0
-#define G_channel 1
-#define B_channel 2
 #define pwm_Frequency 5000 // pwm frequency
 #define pwm_resolution 8 // 8 bit resolution
+//----------------------------------------
 
+//----------------------------------------Control variables.
 const char* server_url="https://smart-home-iot.angazaelimu.com/api/rgbled_state_control";
-
 WiFiClientSecure *client = new WiFiClientSecure;
+String httpRequestData;
+int httpResponseCode;
+String rgbled_data;
+int blink_interval;
 HTTPClient https;
 String payload;
+//----------------------------------------
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
-
-  //Setup the LED
+  
+  // led pins init and config
   ledcAttachPin(RED_PIN, R_channel);
   ledcAttachPin(GREEN_PIN, G_channel);
   ledcAttachPin(BLUE_PIN, B_channel);
@@ -29,8 +44,10 @@ void setup() {
   ledcSetup(G_channel, pwm_Frequency, pwm_resolution);
   ledcSetup(B_channel, pwm_Frequency, pwm_resolution);
 
+  // wifi network init
   WiFi.begin(SSID,PASSWORD);
 
+  // pins function and states definition
   pinMode(ONBOARD_LED_PIN,OUTPUT);     //--> On Board LED port Direction output
   digitalWrite(ONBOARD_LED_PIN, HIGH); //--> Turn off Led On Board
 
@@ -45,7 +62,7 @@ void setup() {
     delay(250);
     //----------------------------------------
   }
-  //----------------------------------------
+  //------------------------------------------
   digitalWrite(ONBOARD_LED_PIN, LOW); //--> Turn off the On Board LED when it is connected to the wifi router.
   //----------------------------------------If successfully connected to the wifi router, the IP Address that will be visited is displayed in the serial monitor
   Serial.println("");
@@ -62,7 +79,6 @@ void setup() {
   Serial.println("");
   Serial.print("connecting...");
   delay(1000);
-
 }
 
 void loop() {
@@ -74,42 +90,37 @@ void loop() {
     //Initializing an HTTPS communication using the secure client
     Serial.print("[HTTPS] begin...\n");
     if(https.begin(*client, server_url)){
-      
+
         //Get the threshold value
-        String result= httpGETRequest(server_url);
-        Serial.println("The payload is: " +result);
-      
-        //Get the threshold value
-        String rgbled_data= httpGETRequest(server_url);
-      
+        rgbled_data= httpGETRequest(server_url);
+
         JSONVar json_interval=JSON.parse(rgbled_data);
-        Serial.println("The jsonvar is: "+json_interval);
-      
-        int blink_interval=(const int)(json_interval["blink_interval"]);
-        Serial.println("Blink interval: "+ String(blink_interval));
-      
         // JSON.typeof(jsonVar) can be used to get the type of the var
         if (JSON.typeof(json_interval) == "undefined") {
           Serial.println("Parsing input failed!");
           return;
         }
-      
+        //decode response  info
+        blink_interval=(const int)(json_interval["blink_interval"]);
+        Serial.println("Blink interval: "+ String(blink_interval));
+
+        // RGDB blink
         RGB_Color(100,200,100);
         delay(blink_interval);
         RGB_Color(0,0,0);
         delay(blink_interval);
-        https.end();
     }
     else {
       Serial.printf("[HTTPS] Unable to connect\n");
     }
-  } 
+  }
   else {
     Serial.printf("[HTTPS] Unable to connect\n");
   }
-  
-  delay(3000);
-
+  // if no blink interval is set
+  if (blink_interval==0) {
+    delay(3000);
+  }
 }
 
 void RGB_Color(int red, int green, int blue) {
@@ -123,19 +134,18 @@ String httpGETRequest(const char* serverName) {
 
   //Specify content-type header
   https.addHeader("Content-Type", "application/x-www-form-urlencoded");
-  // Prepare POST request data
-  String httpRequestData = "rgbled_blink_API_KEY" + String(API_KEY);
 
+  //----------------------------------------Prepare HTTP Request
+  httpRequestData = "rgbled_blink_API_KEY=" + String(API_KEY) + "";
   // Send POST request
-  int httpResponseCode = https.POST(httpRequestData);
+  httpResponseCode = https.POST(httpRequestData);
+  //----------------------------------------
 
-  //get the response
+  //----------------------------------------GET HTTP Request
   if (httpResponseCode > 0) { //initialize payload if GET data is available
     Serial.print("HTTP Response code: ");
     Serial.println(httpResponseCode);
     payload=https.getString();
-    Serial.println("The payload is: " +payload);
-
   }
   else {
     Serial.print("HTTP Response code: ");
@@ -143,7 +153,9 @@ String httpGETRequest(const char* serverName) {
     Serial.print("Error code: ");
     Serial.println(httpResponseCode);
   }
-
+  // Free resources
+  https.end();
   return payload;
+  //----------------------------------------
 
 }

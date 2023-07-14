@@ -5,6 +5,7 @@
  * server auth CA certificate key
  * ------DO NOT EDIT--------
  */
+
 const char* root_cacert = \
 "-----BEGIN CERTIFICATE-----\n" \
 "MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw\n" \

@@ -1,27 +1,45 @@
-#include <driver/i2s.h>
-#include <Arduino.h>
+/*
+* SMART SECURITY CONTROL-------------------
+* Use LRD sensor:
+*  -> Control remotely
+*     - Set LDR threshold value from the platform
+*     - Use set threshod to control turn ON/OFF of the light
+* AMGAZA ELIMU - SH.PROJECT V2.0 / 023
+* ----------------------------------------
+*/
+//----------------------------------------Support libraries and sensor parameters.
 #include <WiFi.h>
+#include "secrets.h"
+#include <Arduino.h>
 #include <HTTPClient.h>
+#include <driver/i2s.h>
+#include "soc/i2s_reg.h"
 #include <Arduino_JSON.h>
 #include <WiFiClientSecure.h>
-#include "soc/i2s_reg.h"
-#include "secrets.h"
 #include "pin_configurations.h"
-
 #define BUFLEN 256
-int32_t audio_buf[BUFLEN];
+//----------------------------------------
 
+//----------------------------------------Control variables.
 int lightVal;   // light reading
 String payload;
-String httpRequestData;
-int httpResponseCode;
 float loudness;
+String ldr_data;
+HTTPClient https;
+int ldr_threshold;
+String ldr_status;
+int httpResponseCode;
+String httpRequestData;
+int32_t audio_buf[BUFLEN];
+WiFiClientSecure *client = new WiFiClientSecure;
+const char* server_url="https://smart-home-iot.angazaelimu.com/api/ldr_state_update";
+
 // Setting PWM frequency, channels and bit resolution
-const int FREQUENCY = 5000;
-const int REDCHANNEL = 0;
-const int GREENCHANNEL = 1;
-const int BLUECHANNEL = 2;
 const int RESOLUTION = 8;
+const int REDCHANNEL = 0;
+const int BLUECHANNEL = 2;
+const int GREENCHANNEL = 1;
+const int FREQUENCY = 5000;
 
 static const i2s_port_t i2s_num = I2S_NUM_0; // i2s port number
 
@@ -38,16 +56,12 @@ static const i2s_config_t i2s_config = {
 };
 
 static const i2s_pin_config_t pin_config = {
-    .bck_io_num = I2S_WS,                   // BCKL
-    .ws_io_num = I2S_SCK,                    // LRCL
+    .bck_io_num = I2S_WS,              // BCKL
+    .ws_io_num = I2S_SCK,               // LRCL
     .data_out_num = I2S_PIN_NO_CHANGE,  // not used (only for speakers)
-    .data_in_num = I2S_SD                  // DOUT
+    .data_in_num = I2S_SD               // DOUT
 };
-
-const char* server_url="https://smart-home-iot.angazaelimu.com/api/ldr_state_update";
-
-WiFiClientSecure *client = new WiFiClientSecure;
-HTTPClient https;
+//----------------------------------------
 
 void setup() {
 
@@ -55,6 +69,7 @@ void setup() {
 
   Serial.println("Configuring I2S...");
 
+  // i2s init and config
   i2s_driver_install(i2s_num, &i2s_config, 0, NULL);   //install and start i2s driver
   REG_SET_BIT(I2S_TIMING_REG(i2s_num),BIT(9));   /*  #include "soc/i2s_reg.h"   I2S_NUM -> 0 or 1*/
   REG_SET_BIT(I2S_CONF_REG(i2s_num), I2S_RX_MSB_SHIFT);
@@ -63,7 +78,8 @@ void setup() {
 
   //setting up the WiFi
   WiFi.begin(SSID,PASSWORD);
-  
+
+  // pins function and states definition
   pinMode(ONBOARD_LED_PIN,OUTPUT);     //--> On Board LED port Direction output
   digitalWrite(ONBOARD_LED_PIN, HIGH); //--> Turn off Led On Board
 
@@ -106,7 +122,7 @@ void setup() {
   ledcAttachPin(GREEN_PIN, GREENCHANNEL);
   ledcAttachPin(BLUE_PIN, BLUECHANNEL);
 
-  //Setting up the LDR
+  //Setting up the LDR pinout functionality
   pinMode(LDR_PIN, INPUT); // set ESP32 pin to input mode to read value from OUTPUT pin of sensor
 
 }
@@ -144,13 +160,13 @@ void loop() {
          }
       }
       meanval /= volCount;
-    
+
       // subtract it from all sapmles to get a 'normalized' output
       for (int i=0; i< volCount; i++)
       {
           cleanBuf[i] -= meanval;
       }
-    
+
       // find the 'peak to peak' max
       float maxsample, minsample;
       minsample = 100000;
@@ -159,67 +175,51 @@ void loop() {
         minsample = _min(minsample, cleanBuf[i]);
         maxsample = _max(maxsample, cleanBuf[i]);
       }
-    
+
       loudness=maxsample - minsample;
-    
-      //Get the threshold value
-      String ldr_data = httpGETRequest(server_url);
+
+      //Get the threshold value from server
+      ldr_data = httpGETRequest(server_url);
       JSONVar json_threshold=JSON.parse(ldr_data);
-    
+
       // validate server Response
       if (JSON.typeof(json_threshold) == "undefined") {
         Serial.println("Parsing input failed!");
         return;
       }
-      int ldr_threshold=(const int)(json_threshold["ldr_threshold"]);
-    
+      ldr_threshold=(const int)(json_threshold["ldr_threshold"]);
+
       Serial.println("LDR set treshold value: " + String(ldr_threshold));
-    
-      //Check the LDR reading
+
+      // Get the LDR reading
       lightVal = analogRead(LDR_PIN);
-    
-      if (lightVal>ldr_threshold){
-    
+
+      if (lightVal > ldr_threshold){
+
           Serial.println(String(loudness));
-    
+
           // if mean is greater than 1000 and LDR value is greater than the threshold,
           //turn on the LED
-    
+
           if (loudness>2000){
              setColor(100,150,130);
-             https.addHeader("Content-Type", "application/x-www-form-urlencoded");
-             // Prepare POST request data
-             httpRequestData = "ldr_sensor_API_KEY=" + String(API_KEY) + "&led_status=1" + "&ldr_status=1";
-             httpResponseCode=https.POST(httpRequestData);
-             https.end();
-             return;
+             ldr_status = "1";
           }
           else{
              setColor(0,0,0);
-             https.addHeader("Content-Type", "application/x-www-form-urlencoded");
-             int httpResponseCode=https.POST("ldr_sensor_API_KEY=" + String(API_KEY) + "&led_status=0"+ "&ldr_status=1");
-             //Serial.print("HTTP Response code: ");
-             //Serial.println(httpResponseCode);
-             https.end();
-             return;
+             ldr_status = "0";
           }
        }
-    
+
       else{
           setColor(0,0,0);
-          https.addHeader("Content-Type", "application/x-www-form-urlencoded");
-          int httpResponseCode=https.POST("ldr_sensor_API_KEY=" + String(API_KEY) + "&led_status=0" + "&ldr_status=0");
-          //Serial.print("HTTP Response code: ");
-          //Serial.println(httpResponseCode);
-          https.end();
-          return;
-    
+          ldr_status = "0";
       }
     }
     else {
       Serial.printf("[HTTPS] Unable to connect\n");
     }
-  } 
+  }
   else {
     Serial.printf("[HTTPS] Unable to connect\n");
   }
@@ -244,22 +244,30 @@ String httpGETRequest(const char* serverName) {
   // Send POST request
   httpResponseCode = https.POST(httpRequestData);
 
-  //get the response
+  //----------------------------------------Prepare HTTP Request
+  httpRequestData="ldr_sensor_API_KEY=" + String(API_KEY) + "&ldr_status=" + ldr_status + "";
+  // Send POST request
+  httpResponseCode=https.POST(httpRequestData);
+  Serial.print("HTTP Response code: ");
+  Serial.println(httpRequestData);
+  //----------------------------------------
+
+  //----------------------------------------GET HTTP Request
   if (httpResponseCode == 200) {
     Serial.print("HTTP Response code: ");
     Serial.println(httpResponseCode);
     payload=https.getString();
-    Serial.println(payload);
 
   }
   else {
     Serial.print("HTTP Response code: ");
     Serial.println(httpResponseCode);
-
     Serial.print("Error code: ");
     Serial.println(httpResponseCode);
   }
-
+  // release memory resources
+  https.end();
   return payload;
+  //----------------------------------------
 
 }

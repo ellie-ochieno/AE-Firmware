@@ -1,11 +1,18 @@
-
+  /*
+ * SMOKE DETECTION HANDLER------------------
+ * USE MQ2 - SMOKE SENSOR:
+ *    -> Measure smoke value and compare against set threshold
+ *    -> Sound buzzer alarm if smoke value surpasses set threshold
+ * AMGAZA ELIMU - SH. PROJECT V2.0 / 023
+ * ----------------------------------------
+ */
 //----------------------------------------Support libraries and sensor parameters.
 //#include <ESP32Servo.h>
 #include <WiFi.h>
+#include "secrets.h"
 #include <HTTPClient.h>
 #include <Arduino_JSON.h>
 #include <WiFiClientSecure.h>
-#include "secrets.h"
 #include "pin_configurations.h"
 #define TONE_PWM_CHANNEL 0
 
@@ -15,20 +22,17 @@
 */
 //----------------------------------------
 
-
 //----------------------------------------Control variables.
-
 const char* server_url = "https://smart-home-iot.angazaelimu.com/api/smokesensor_state_update";
-String httpRequestData;
-int httpResponseCode;
-String payload;
 int gasValue;
+String payload;
+HTTPClient https;
 int smoke_threshold;
+int httpResponseCode;
+String httpRequestData;
 String smokesensor_data;
 WiFiClientSecure *client = new WiFiClientSecure;
-HTTPClient https;
 //----------------------------------------
-
 
 void setup() {
   Serial.begin(115200);
@@ -79,31 +83,31 @@ void loop() {
   // get sensor reading
   gasValue = analogRead(MQ2_PIN);
   Serial.println("\nSmoke sensor value: " + String(gasValue) + "\n");
-  
+
   if(client){
     // set secure client
     client->setCACert(root_cacert);
     //create an HTTPClient instance
-  
+
     //Initializing an HTTPS communication using the secure client
     Serial.print("[HTTPS] begin...\n");
     if(https.begin(*client, server_url)){
-    
+
       //Get the threshold value
       smokesensor_data = httpGETRequest(server_url);
       JSONVar json_threshold=JSON.parse(smokesensor_data);
-  
+
       // received data validation
       if (JSON.typeof(json_threshold) == "undefined") {
         Serial.println("Parsing input failed!");
         return;
       }
-    
+
       // received data decode
       smoke_threshold = (const int)(json_threshold["smoke_threshold"]);
-      Serial.println("\nSet smoke threshold value: " + String(smoke_threshold));
-  
-      // invoke event when sensor value surpasses set threshold
+      Serial.println("\nSas value set threshold: " + String(smoke_threshold));
+
+      // invoke event when detected gass value surpasses set threshold
       if (gasValue > smoke_threshold) {
          // Plays the middle C scale
          ledcWriteNote(TONE_PWM_CHANNEL, NOTE_C, 4);
@@ -119,7 +123,7 @@ void loop() {
   else {
     Serial.printf("[HTTPS] Unable to connect\n");
   }
-  
+
   // looping control delay
   delay(3000);
 }
@@ -134,7 +138,7 @@ String httpGETRequest(const char* serverName) {
   httpRequestData = "smoke_sensor_API_KEY=" + String(API_KEY) + "&smoke_sensor_val=" + String(gasValue) + "";
   // Send POST request
   httpResponseCode = https.POST(httpRequestData);
-  
+
   Serial.print("Server POST request: ");
   Serial.print(httpRequestData);
   Serial.println("");

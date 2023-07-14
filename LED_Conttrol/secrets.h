@@ -4,12 +4,11 @@
 #define SSID ""
 #define PASSWORD ""
 #define apiKeyValue ""
-
 /*
  * server auth CA certificate key
  * ------DO NOT EDIT--------
  */
-const char* test_root_ca = \
+const char* root_cacert = \
 "-----BEGIN CERTIFICATE-----\n" \
 "MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw\n" \
 "TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh\n" \

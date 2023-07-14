@@ -1,7 +1,7 @@
 
-#define SSID "geviton_2"
-#define PASSWORD "1234ninye#"
-#define API_KEY "zBVX6QOIm4WYAE0oN9"
+#define SSID ""
+#define PASSWORD ""
+#define API_KEY ""
                                   
 /*
  * server auth CA certificate key
