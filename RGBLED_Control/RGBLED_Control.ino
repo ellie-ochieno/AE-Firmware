@@ -2,7 +2,7 @@
 * RGBLED CONTROL-------------------
 * Use RGBLED:
 *  -> Control remotely
-*     - Blink using platform set interval
+*     - Toggle, Blink and light by specific color from platform set values
 * AMGAZA ELIMU - SH.PROJECT V2.0 / 023
 * ----------------------------------------
 */
@@ -25,11 +25,15 @@
 const char* server_url="https://smart-home-iot.angazaelimu.com/api/rgbled_state_control";
 WiFiClientSecure *client = new WiFiClientSecure;
 String httpRequestData;
+String rgb_toggle_val;
 int httpResponseCode;
 String rgbled_data;
 int blink_interval;
 HTTPClient https;
 String payload;
+int greenValue;
+int blueValue;
+int redValue;
 //----------------------------------------
 
 void setup() {
@@ -94,26 +98,46 @@ void loop() {
         //Get the threshold value
         rgbled_data= httpGETRequest(server_url);
 
-        JSONVar json_interval=JSON.parse(rgbled_data);
+        JSONVar json_rgbled_data=JSON.parse(rgbled_data);
         // JSON.typeof(jsonVar) can be used to get the type of the var
-        if (JSON.typeof(json_interval) == "undefined") {
+        if (JSON.typeof(json_rgbled_data) == "undefined") {
           Serial.println("Parsing input failed!");
           return;
         }
-        //decode response  info
-        blink_interval=(const int)(json_interval["blink_interval"]);
+        //decode response info
+        blink_interval=(const int)(json_rgbled_data["blink_interval"]);
+        rgb_toggle_val=(const char*)(json_rgbled_data["toggle_state"]);
         Serial.println("Blink interval: "+ String(blink_interval));
+        Serial.println("RGBLED toogel state: " + rgb_toggle_val);
+        // RGBLED color parameters
+        redValue=(const int)(json_rgbled_data["rled_slider_val"]);
+        Serial.println("rled blink value"+ String(redValue));
+        greenValue=(const int)(json_rgbled_data["gled_slider_val"]);
+        Serial.println("gled blink value"+ String(greenValue));
+        blueValue=(const int)(json_rgbled_data["bled_slider_val"]);
+        Serial.println("bled blink value"+ String(blueValue));
 
         if (toggle_state == "1") { //turn ON RGB LED
-          RGB_Color(100,200,100);
-          Serial.println("RGB LED status: ON");
+          RGB_Color(100,200,100); //light RGB LED based on default color values
+          // light RGB LED based on color picker values if set
+          if ((redValue > 0) || (greenValue > 0) || (blueValue > 0)) {
+            RGB_Color(redValue,greenValue,blueValue);
+          }
           //blinks RGB LED based on platform set time interval
           if(blink_interval > 0){
             RGB_Color(100,200,100);
             delay(blink_interval);
             RGB_Color(0,0,0);
             delay(blink_interval);
+            // blinks RGB LED based on color picker values if set
+            if ((redValue > 0) || (greenValue > 0) || (blueValue > 0)) {
+              RGB_Color(redValue,greenValue,blueValue);
+              delay(blink_interval);
+              RGB_Color(0,0,0);
+              delay(blink_interval);
+            }
           }
+          Serial.println("RGB LED status: ON");
         }
         if (toggle_state == "0") { //turn OFF RGB LED
           RGB_Color(0,0,0);

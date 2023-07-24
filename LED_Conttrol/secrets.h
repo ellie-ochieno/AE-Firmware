@@ -1,9 +1,9 @@
 /*
  * Connection credentials
 */
-#define SSID ""
-#define PASSWORD ""
-#define apiKeyValue ""
+#define SSID "peris"
+#define PASSWORD "@peris12"
+#define apiKeyValue "HsGpkVIhPiyTcNF2Ef"
 /*
  * server auth CA certificate key
  * ------DO NOT EDIT--------
