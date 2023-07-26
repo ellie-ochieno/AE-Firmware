@@ -39,10 +39,13 @@ Tone32 tone32(BUZZER_PIN, PWM_CHANNEL);
 
 //----------------------------------------Control variables.
 const char* server_url="https://smart-home-iot.angazaelimu.com/api/door_state_control";
+int position;
 int door_flag;
 String payload;
+String door_state;
 String password;
 HTTPClient https;
+String door_data;
 int Red_num_time;
 int key_door_flag;
 int httpResponseCode;
@@ -81,9 +84,8 @@ void Password_Confirmation()
           display.setCursor(0,40);
           display.print("Right");
           display.display();
-          https.addHeader("Content-Type", "application/x-www-form-urlencoded");
-          int httpResponseCode=https.POST("pbtn_API_KEY=" + String(API_KEY) + "&pbtn_status=1");
-          int position;
+//          https.addHeader("Content-Type", "application/x-www-form-urlencoded");
+//          int httpResponseCode=https.POST("pbtn_API_KEY=" + String(API_KEY) + "&pbtn_status=1");
 
           if (servoIndex1 != -1 ){
             for (position = 0; position <= 180; position+=10){
@@ -115,14 +117,12 @@ void Password_Confirmation()
           }
         else {
           tone32.playTone(wrong_tone_frequency);
-          https.addHeader("Content-Type", "application/x-www-form-urlencoded");
-          int httpResponseCode=https.POST("pbtn_API_KEY=" + String(API_KEY) + "&pbtn_status=0");
+//          https.addHeader("Content-Type", "application/x-www-form-urlencoded");
+//          int httpResponseCode=https.POST("pbtn_API_KEY=" + String(API_KEY) + "&pbtn_status=0");
           Serial.print("The password is wrong");
           display.clearDisplay();
           display.setTextColor(WHITE);
           display.setTextSize(1);
-          //display.setCursor(0,5);
-          //display.print("Smart Home ");
           display.setCursor(0,20);
           display.print("Password:");
           display.setTextSize(2);
@@ -131,11 +131,6 @@ void Password_Confirmation()
           display.display();
           delay(1000);
           tone32.stopPlaying();
-          //tone(3,165);
-          //delay(125);
-          //delay(500);
-          //noTone(3);
-          //delay(200);
           display.clearDisplay();
           display.setCursor(0,20);
           display.print(" Try Again ");
@@ -259,7 +254,24 @@ void loop(){
     Serial.print("[HTTPS] begin...\n");
     if(https.begin(*client, server_url)){
       // call http server handler function
-      httpGETRequest(server_url);
+      door_data = httpGETRequest(server_url);
+
+      // get json response data
+      JSONVar json_res_data = JSON.parse(door_data);
+
+      // validate response type
+      if (JSON.typeof(json_res_data) == "undefined") {
+        Serial.println("Parsing input failed!");
+        return;
+      }
+
+      // decode actual led status data
+      door_state = (const char*)(json_res_data["push_btn_state"]);
+      // print server received data
+      Serial.println("\nDoor state: " + door_state);
+
+      //Calls door state control handler
+      doorControl(door_data);
       
       if ((green_button_state != 0) && (red_button_state == 0) )
       {
@@ -368,3 +380,67 @@ String httpGETRequest(const char* serverName) {
   return payload;
   //----------------------------------------
 }
+//Control door based on platform set state
+void doorControl(String door_ctrl_state){
+  if(door_ctrl_state == "1"){//door open controls and signals
+    tone32.playTone(right_tone_frequency);
+    Serial.println("The password is correct");
+    display.clearDisplay();
+    display.setTextColor(WHITE);
+    display.setTextSize(1);
+    display.setCursor(0,20);
+    display.print("Password:");
+    display.setTextSize(2);
+    display.setCursor(0,40);
+    display.print("Right");
+    display.display();
+    if (servoIndex1 != -1 ){
+      for (position = 0; position <= 180; position+=10){
+        // goes from 0 degrees to 180 degrees
+        // in steps of 10 degree
+        Serial.print(F("Servo1 pos = ")); Serial.print(position);
+        ESP32_ISR_Servos.setPosition(servoIndex1, position);
+
+        // waits 30ms for the servo to reach the position
+        delay(30);
+      }
+
+      delay(1000);
+
+      for (position = 180; position >= 0; position-=10){
+
+          Serial.print(F("Servo1 pos = ")); Serial.print(position);
+
+          ESP32_ISR_Servos.setPosition(servoIndex1, position);
+
+        // waits 30ms for the servo to reach the position
+        delay(30);
+      }
+      delay(200);
+      key_door_flag = 1;
+      delay(1000);
+      tone32.stopPlaying();
+    }
+  }
+  else{
+      tone32.playTone(wrong_tone_frequency);
+      Serial.print("The password is wrong");
+      display.clearDisplay();
+      display.setTextColor(WHITE);
+      display.setTextSize(1);
+      display.setCursor(0,20);
+      display.print("Password:");
+      display.setTextSize(2);
+      display.setCursor(0,40);
+      display.print("Error");
+      display.display();
+      delay(1000);
+      tone32.stopPlaying();
+      display.clearDisplay();
+      display.setCursor(0,20);
+      display.print(" Try Again ");
+      display.display();
+      //key_voice();
+      key_door_flag = 1;
+    }
+  }
