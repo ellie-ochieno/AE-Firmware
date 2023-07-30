@@ -3,20 +3,20 @@
 #define WATER_LEVEL_PIN 5 //A2
 #define LDR_PIN 6 //A3
 #define DHT_PIN 7 //A4
-#define ONBOARD_LED_PIN 9 
+#define ONBOARD_LED_PIN 2 
 #define BUZZER_PIN 15 //A5
 #define INA_PIN 38  //D3
 #define INB_PIN 35  //D4
 #define MQ2_PIN 34  //A8
 #define PIR_PIN 39  //D2
 
-#define RED_PIN 16  //A6
-#define BLUE_PIN 19  //A7
-#define GREEN_PIN 33  //A9
+#define RED_PIN 23  //A6
+#define GREEN_PIN 22  //A9
+#define BLUE_PIN 21  //A7
 
 #define I2S_SD 8  //DOUT  
 #define I2S_SCK 17  //LRCL
 #define I2S_WS 18 //BCLK
 
-#define I2C_SCL 2  //SCL
+//#define I2C_SCL 2  //SCL
 #define I2C_SDA 42  //SDA

@@ -1,8 +1,9 @@
-/*
+ /*
 * SMART DOOR CONTROL-------------------
 * Use PUSH BUTTONS:
 *  -> Control door opening
-*     - Use push buttons for chararcters input
+*     - Use keypad to input password
+*     - Compare the set password with platform set
 * AMGAZA ELIMU - SH.PROJECT V2.0 / 023
 * ----------------------------------------
 */
@@ -10,6 +11,7 @@
 #include <SPI.h>
 #include <Wire.h>
 #include <WiFi.h>
+#include <Keypad.h>
 #include "secrets.h"
 #include "Tone32.hpp"
 #include <HTTPClient.h>
@@ -30,6 +32,8 @@
 // Published values for SG90 servos; adjust if needed
 #define MIN_MICROS  544 //544
 #define MAX_MICROS  2450
+#define ROW_NUM     4 // four rows
+#define COLUMN_NUM  3 // three columns
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
@@ -39,134 +43,42 @@ Tone32 tone32(BUZZER_PIN, PWM_CHANNEL);
 
 //----------------------------------------Control variables.
 const char* server_url="https://smart-home-iot.angazaelimu.com/api/door_state_control";
-int position;
-int door_flag;
-String payload;
+char key;
 String door_state;
-String password;
-HTTPClient https;
 String door_data;
-int Red_num_time;
-int key_door_flag;
+String door_control_status = "0";
+
+char keys[ROW_NUM][COLUMN_NUM] = {
+  {'1', '2', '3'},
+  {'4', '5', '6'},
+  {'7', '8', '9'},
+  {'*', '0', '#'}
+};
+
+byte pin_rows[ROW_NUM] = {18, 5, 17, 16}; // GPIO18, GPIO5, GPIO17, GPIO16 connect to the row pins
+byte pin_column[COLUMN_NUM] = {4, 0, 2};  // GPIO4, GPIO0, GPIO2 connect to the column pins
+
+  // kypad object
+Keypad keypad = Keypad( makeKeymap(keys), pin_rows, pin_column, ROW_NUM, COLUMN_NUM );
+
+HTTPClient https;
 int httpResponseCode;
-int red_button_state;
-int servoIndex1  = -1;
+String set_password; // To hold platform set password
+String input_password;  // To hold keypad input password
 String httpRequestData;
-int green_button_state;
-int password_length_flag;
-double right_tone_frequency;
-double wrong_tone_frequency;
+  // controls init
+int wrong_tone_frequency = 600;
+int right_tone_frequency = 1200;
 WiFiClientSecure *client = new WiFiClientSecure;
 //----------------------------------------
 
-/*
- * After completing the password input, if the green button is pressed,
- * the password will be confirmed. If the final password value is equal to ".--.",
- * the password is correct, otherwise the password is wrong.
- */
-void Password_Confirmation()
-{
-  delay(100);
-  if ((green_button_state == 0) && (red_button_state != 0))
-  {
-      if (key_door_flag == 0) {
-        Serial.println("Checking the key door flag");
-        if (password == ".--.")
-        {
-          tone32.playTone(right_tone_frequency);
-          Serial.println("The password is correct");
-          display.clearDisplay();
-          display.setTextColor(WHITE);
-          display.setTextSize(1);
-          display.setCursor(0,20);
-          display.print("Password:");
-          display.setTextSize(2);
-          display.setCursor(0,40);
-          display.print("Right");
-          display.display();
-//          https.addHeader("Content-Type", "application/x-www-form-urlencoded");
-//          int httpResponseCode=https.POST("pbtn_API_KEY=" + String(API_KEY) + "&pbtn_status=1");
 
-          if (servoIndex1 != -1 ){
-            for (position = 0; position <= 180; position+=10){
-              // goes from 0 degrees to 180 degrees
-              // in steps of 10 degree
-              Serial.print(F("Servo1 pos = ")); Serial.print(position);
-              ESP32_ISR_Servos.setPosition(servoIndex1, position);
-
-              // waits 30ms for the servo to reach the position
-              delay(30);
-            }
-
-            delay(1000);
-
-            for (position = 180; position >= 0; position-=10){
-
-                Serial.print(F("Servo1 pos = ")); Serial.print(position);
-
-                ESP32_ISR_Servos.setPosition(servoIndex1, position);
-
-              // waits 30ms for the servo to reach the position
-              delay(30);
-            }
-          delay(200);
-          key_door_flag = 1;
-          delay(1000);
-          tone32.stopPlaying();
-        }
-          }
-        else {
-          tone32.playTone(wrong_tone_frequency);
-//          https.addHeader("Content-Type", "application/x-www-form-urlencoded");
-//          int httpResponseCode=https.POST("pbtn_API_KEY=" + String(API_KEY) + "&pbtn_status=0");
-          Serial.print("The password is wrong");
-          display.clearDisplay();
-          display.setTextColor(WHITE);
-          display.setTextSize(1);
-          display.setCursor(0,20);
-          display.print("Password:");
-          display.setTextSize(2);
-          display.setCursor(0,40);
-          display.print("Error");
-          display.display();
-          delay(1000);
-          tone32.stopPlaying();
-          display.clearDisplay();
-          display.setCursor(0,20);
-          display.print(" Try Again ");
-          display.display();
-          //key_voice();
-          key_door_flag = 1;
-        }
-
-      }
-      password = "";
-
-
-      if (key_door_flag == 1) {
-        delay(1000);
-        key_door_flag = 0;
-        display.clearDisplay();
-        display.setTextSize(2);
-        display.setCursor(0,28);
-        display.print("Smart Home ");
-        display.display();
-      }
-  }
-}
-
-void setup(){
+void setup() {
+  Serial.begin(9600);
+  input_password.reserve(32); // maximum input characters is 33, change if needed
   Serial.begin(115200);
   while (!Serial);
     delay(500);
-
-  // controls init
-  Red_num_time = 0;
-  password = "";
-  key_door_flag = 0;
-  password_length_flag = 0;
-  wrong_tone_frequency = 600;
-  right_tone_frequency = 1200;
 
   //Select ESP32 timer USE_ESP32_TIMER_NO
   ESP32_ISR_Servos.useTimer(USE_ESP32_TIMER_NO);
@@ -227,116 +139,57 @@ void setup(){
   Serial.println("");
   Serial.print("connecting...");
   delay(1000);
-
-  pinMode(BUTTON_RED, INPUT);
-  pinMode(BUTTON_GREEN, INPUT);
 }
 
-void loop(){
-  // The green button is connected to the digital port D4,
-  //the program block outputs the state of the button,
-  //the high level "1" represents the button is not pressed,
-  //and the low level "0" represents the button is pressed
-  green_button_state = digitalRead(BUTTON_GREEN);
+void loop() {
+  //read from keypad
+  key = keypad.getKey();
 
-  // The red button is connected to the digital port D5,
-  //the program block outputs the state of the button,
-  //the high level "1" represents the button is not pressed,
-  //and the low level "0" represents the button is pressed
-  red_button_state = digitalRead(BUTTON_RED);
 
  if(client){
-    // set secure client via root cert
+                                   // set secure client via root cert
     client->setCACert(root_cacert);
-    //create an HTTPClient instance
-
-    //Initializing an HTTPS communication using the secure client
+                                   //create an HTTPClient instance
+                                   //Initializing an HTTPS communication using the secure client
     Serial.print("[HTTPS] begin...\n");
     if(https.begin(*client, server_url)){
-      // call http server handler function
-      door_data = httpGETRequest(server_url);
 
-      // get json response data
+                                    // call http server handler function
+      door_data = httpGETRequest(server_url);
+      
+                                    // get json response data
       JSONVar json_res_data = JSON.parse(door_data);
 
-      // validate response type
+                                    // validate response type
       if (JSON.typeof(json_res_data) == "undefined") {
         Serial.println("Parsing input failed!");
         return;
       }
-
-      // decode actual led status data
+                                    // decode actual led status data
       door_state = (const char*)(json_res_data["push_btn_state"]);
-      // print server received data
+      set_password = (const char*)(json_res_data["door_password"]);
+                                    // print server received data
       Serial.println("\nDoor state: " + door_state);
-
-      //Calls door state control handler
-      doorControl(door_data);
+      Serial.println("\nDoor password: " + set_password);
       
-      if ((green_button_state != 0) && (red_button_state == 0) )
-      {
-        Serial.println("The green button state is:");
-        Serial.println(green_button_state);
-        Serial.println("The red button state is:");
-        Serial.println(red_button_state);
-        delay(100);
-        green_button_state  = digitalRead(BUTTON_GREEN);
-        while ((green_button_state != 0) && (red_button_state == 0))
-        {
-          red_button_state = digitalRead(BUTTON_RED);
-          Red_num_time = Red_num_time + 1;
-          delay(100);
+      if (key) {                    // if keypad is pressed
+        Serial.println(key);
+      
+        if (key == '*') {           // initialize keypad to receiving new inputs mode
+          input_password = "";      // clear input password
+        } else if (key == '#') {    // if keypad 'okay' btn is pressed
+          if(set_password == input_password){
+                                    // change door control status if correct password
+            door_control_status = "1";
+          }
+                                    // Calls door state control handler
+          doorControl(door_state, set_password, input_password);
+      
+          input_password = "";      // clear input password
+        } else {
+          input_password += key;    // append new character to input password string
         }
       }
-      if ((Red_num_time > 1) && (Red_num_time < 5))
-      {
-        //key_voice();
-        password = String(password) + String(".");
-        display.clearDisplay();
-        display.setTextColor(WHITE);
-        display.setTextSize(1);
-        display.setCursor(0,5);
-        display.print("Password :");
-        display.setTextSize(2);
-        display.setCursor(28,20);
-        display.print(password);
-        display.display();
-      }
-      if (Red_num_time > 5)
-      {
-        //key_voice();
-        password = String(password) + String("-");
-        display.clearDisplay();
-        display.setTextColor(WHITE);
-        display.setTextSize(1);
-        display.setCursor(0,5);
-        display.print("Password :");
-        display.setTextSize(2);
-        display.setCursor(20,20);
-        display.print(password);
-        display.display();
-      }
-
-      if ((password.length() == 4)||(password.length() > 4))
-      {
-        password_length_flag = 1;
-      }
-
-      switch (password_length_flag)
-      {
-        case 0:
-         password_length_flag = 0;
-        break;
-        case 1:
-          Password_Confirmation();
-          password_length_flag = 0;
-          Serial.println("Finished Password Confirmation");
-        break;
-      }
-
-      Red_num_time = 0;
-      Serial.println("Gotten to the end of the loop");
-      Serial.println(password);
     }
     else {
       Serial.printf("[HTTPS] Unable to connect\n");
@@ -346,7 +199,8 @@ void loop(){
     Serial.printf("[HTTPS] Unable to connect\n");
   }
   // wait a 2 seconds between readings
-  delay(20);
+  // delay(20);
+  
 }
 
 
@@ -356,7 +210,7 @@ String httpGETRequest(const char* serverName) {
   https.addHeader("Content-Type", "application/x-www-form-urlencoded");
 
   //----------------------------------------Prepare HTTP Request
-  httpRequestData = "pbtn_API_KEY=" + String(API_KEY) + "&pbtn_status=" + String(password_length_flag) + "";
+  httpRequestData = "pbtn_API_KEY=" + String(API_KEY) + "&pbtn_status=" + door_control_status + "";
   // Send POST request
   httpResponseCode = https.POST(httpRequestData);
   Serial.print("\nData request: ");
@@ -380,9 +234,9 @@ String httpGETRequest(const char* serverName) {
   return payload;
   //----------------------------------------
 }
-//Control door based on platform set state
-void doorControl(String door_ctrl_state){
-  if(door_ctrl_state == "1"){//door open controls and signals
+//Control door based on platform set parameters
+void doorControl(String door_ctrl_state, String door_password, String input_password){
+  if(door_ctrl_state == "1" || door_password == input_password){//door open controls and signals
     tone32.playTone(right_tone_frequency);
     Serial.println("The password is correct");
     display.clearDisplay();
@@ -394,6 +248,7 @@ void doorControl(String door_ctrl_state){
     display.setCursor(0,40);
     display.print("Right");
     display.display();
+                              // invoke door opening
     if (servoIndex1 != -1 ){
       for (position = 0; position <= 180; position+=10){
         // goes from 0 degrees to 180 degrees
@@ -416,8 +271,6 @@ void doorControl(String door_ctrl_state){
         // waits 30ms for the servo to reach the position
         delay(30);
       }
-      delay(200);
-      key_door_flag = 1;
       delay(1000);
       tone32.stopPlaying();
     }
@@ -440,7 +293,5 @@ void doorControl(String door_ctrl_state){
       display.setCursor(0,20);
       display.print(" Try Again ");
       display.display();
-      //key_voice();
-      key_door_flag = 1;
     }
   }

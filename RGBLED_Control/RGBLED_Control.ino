@@ -117,7 +117,7 @@ void loop() {
         blueValue=(const int)(json_rgbled_data["bled_slider_val"]);
         Serial.println("bled blink value"+ String(blueValue));
 
-        if (toggle_state == "1") { //turn ON RGB LED
+        if (rgb_toggle_val == "1") { //turn ON RGB LED
           RGB_Color(100,200,100); //light RGB LED based on default color values
           // light RGB LED based on color picker values if set
           if ((redValue > 0) || (greenValue > 0) || (blueValue > 0)) {
@@ -139,7 +139,7 @@ void loop() {
           }
           Serial.println("RGB LED status: ON");
         }
-        if (toggle_state == "0") { //turn OFF RGB LED
+        if (rgb_toggle_val == "0") { //turn OFF RGB LED
           RGB_Color(0,0,0);
           Serial.println("RGB LED status: OFF");
         }
@@ -152,7 +152,7 @@ void loop() {
     Serial.printf("[HTTPS] Unable to connect\n");
   }
   // if no blink interval is set
-  if (blink_interval==0) {
+  if (blink_interval <= 0) {
     delay(3000);
   }
 }
@@ -170,7 +170,7 @@ String httpGETRequest(const char* serverName) {
   https.addHeader("Content-Type", "application/x-www-form-urlencoded");
 
   //----------------------------------------Prepare HTTP Request
-  httpRequestData = "rgbled_blink_API_KEY=" + String(API_KEY) + "";
+  httpRequestData = "rgbled_toggle_API_KEY=" + String(API_KEY) + "";
   // Send POST request
   httpResponseCode = https.POST(httpRequestData);
   //----------------------------------------
