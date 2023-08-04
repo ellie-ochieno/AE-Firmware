@@ -1,7 +1,7 @@
 
 #define SSID "peris"
 #define PASSWORD "@peris12"
-#define API_KEY "HsGpkVIhPiyTcNF2Ef"
+#define API_KEY "lN3fSp6FeRPBuV5Yyv"
                                   
 /*
  * server auth CA certificate key

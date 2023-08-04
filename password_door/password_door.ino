@@ -47,19 +47,26 @@ char key;
 String door_state;
 String door_data;
 String door_control_status = "0";
+int servoIndex1 = 1;                              // print server received data
+String door_status;  
+int position;
+String payload;
+
+#define ROW_NUM     4 // four rows
+#define COLUMN_NUM  4 // four columns
 
 char keys[ROW_NUM][COLUMN_NUM] = {
-  {'1', '2', '3'},
-  {'4', '5', '6'},
-  {'7', '8', '9'},
-  {'*', '0', '#'}
+  {'1', '2', '3', 'A'},
+  {'4', '5', '6', 'B'},
+  {'7', '8', '9', 'C'},
+  {'*', '0', '#', 'D'}
 };
 
-byte pin_rows[ROW_NUM] = {18, 5, 17, 16}; // GPIO18, GPIO5, GPIO17, GPIO16 connect to the row pins
-byte pin_column[COLUMN_NUM] = {4, 0, 2};  // GPIO4, GPIO0, GPIO2 connect to the column pins
+byte rowPins[ROW_NUM] = {23, 22, 4, 21}; // GPIO19, GPIO18, GPIO5, GPIO17 connect to the row pins
+byte colPins[COLUMN_NUM] = {19, 18, 5, 17};   // GPIO16, GPIO4, GPIO0, GPIO2 connect to the column pins
 
   // kypad object
-Keypad keypad = Keypad( makeKeymap(keys), pin_rows, pin_column, ROW_NUM, COLUMN_NUM );
+Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROW_NUM, COLUMN_NUM );
 
 HTTPClient https;
 int httpResponseCode;
@@ -74,11 +81,8 @@ WiFiClientSecure *client = new WiFiClientSecure;
 
 
 void setup() {
-  Serial.begin(9600);
-  input_password.reserve(32); // maximum input characters is 33, change if needed
   Serial.begin(115200);
-  while (!Serial);
-    delay(500);
+  input_password.reserve(32); // maximum input characters is 33, change if needed
 
   //Select ESP32 timer USE_ESP32_TIMER_NO
   ESP32_ISR_Servos.useTimer(USE_ESP32_TIMER_NO);
@@ -89,7 +93,7 @@ void setup() {
     Serial.println(F("Setup Servo1 failed"));
 
   // setting up custom I2C pins
-  Wire.begin(I2C_SDA, I2C_SCL);
+//  Wire.begin(I2C_SDA, I2C_SCL);
 
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
     Serial.println(F("SSD1306 allocation failed"));
@@ -145,8 +149,7 @@ void loop() {
   //read from keypad
   key = keypad.getKey();
 
-
- if(client){
+  if(client){
                                    // set secure client via root cert
     client->setCACert(root_cacert);
                                    //create an HTTPClient instance
@@ -168,8 +171,14 @@ void loop() {
                                     // decode actual led status data
       door_state = (const char*)(json_res_data["push_btn_state"]);
       set_password = (const char*)(json_res_data["door_password"]);
-                                    // print server received data
-      Serial.println("\nDoor state: " + door_state);
+                           
+      if(door_state == "1"){
+        door_status = "Open!";
+      }
+      else{
+        door_status = "Closed!";
+      }
+      Serial.println("\nDoor state: " + door_status);
       Serial.println("\nDoor password: " + set_password);
       
       if (key) {                    // if keypad is pressed
@@ -177,16 +186,24 @@ void loop() {
       
         if (key == '*') {           // initialize keypad to receiving new inputs mode
           input_password = "";      // clear input password
-        } else if (key == '#') {    // if keypad 'okay' btn is pressed
+        } 
+        else if (key == '#') {    // if keypad 'okay' btn is pressed
           if(set_password == input_password){
                                     // change door control status if correct password
             door_control_status = "1";
+            Serial.print("\nEntered password: "+input_password+"\n");
+            Serial.println("Success! Password match the set password.");
+          } 
+          else {
+            Serial.print("\nEntered password: "+input_password+"\n");
+            Serial.println("The password is incorrect, try again");
           }
                                     // Calls door state control handler
           doorControl(door_state, set_password, input_password);
       
           input_password = "";      // clear input password
-        } else {
+        } 
+        else {
           input_password += key;    // append new character to input password string
         }
       }

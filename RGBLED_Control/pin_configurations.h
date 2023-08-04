@@ -10,9 +10,9 @@
 #define MQ2_PIN 34  //A8
 #define PIR_PIN 39  //D2
 
-#define RED_PIN 23  //A6
-#define GREEN_PIN 22  //A9
-#define BLUE_PIN 21  //A7
+#define RED_PIN 32  //A6
+#define GREEN_PIN 25  //A9
+#define BLUE_PIN 27  //A7
 
 #define I2S_SD 8  //DOUT  
 #define I2S_SCK 17  //LRCL
