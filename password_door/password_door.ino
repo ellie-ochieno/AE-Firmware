@@ -22,60 +22,59 @@
 #include "pin_configurations.h"
 #include "ESP32_New_ISR_Servo.h"
 
-#define TIMER_INTERRUPT_DEBUG  0
-#define ISR_SERVO_DEBUG   1
-// For ESP32 and ESP32_S2, select ESP32 timer number (0-3)
-#define USE_ESP32_TIMER_NO  3
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define PWM_CHANNEL 0
 // Published values for SG90 servos; adjust if needed
 #define MIN_MICROS  544 //544
 #define MAX_MICROS  2450
 #define ROW_NUM     4 // four rows
 #define COLUMN_NUM  3 // three columns
+#define ROW_NUM     4 // four rows
+#define COLUMN_NUM  4 // four columns
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+#define ISR_SERVO_DEBUG   1
+// For ESP32 and ESP32_S2, select ESP32 timer number (0-3)
+#define USE_ESP32_TIMER_NO  3
+#define TIMER_INTERRUPT_DEBUG  0
 
-// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 // Tone32 object for buzzer
 Tone32 tone32(BUZZER_PIN, PWM_CHANNEL);
+// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 //----------------------------------------
 
 //----------------------------------------Control variables.
-const char* server_url="https://smart-home-iot.angazaelimu.com/api/door_state_control";
 char key;
-String door_state;
-String door_data;
-String door_control_status = "0";
-int servoIndex1 = 1;                              // print server received data
-String door_status;  
 int position;
+int countflag;
 String payload;
+HTTPClient https;
+String door_data;
+String door_state;
+String door_status;  
+int servoIndex1 = 1;
+String set_password; // To hold platform set password
+int httpResponseCode;
+String input_password;  // To hold keypad input password
+String httpRequestData;
+int wrong_tone_frequency = 600;// buzzer control tone
+int right_tone_frequency = 1200;// buzzer control tone
+String door_control_status = "0";
+const char* server_url="https://smart-home-iot.angazaelimu.com/api/door_state_control";
 
-#define ROW_NUM     4 // four rows
-#define COLUMN_NUM  4 // four columns
-
+// keypad configuration dfn
 char keys[ROW_NUM][COLUMN_NUM] = {
   {'1', '2', '3', 'A'},
   {'4', '5', '6', 'B'},
   {'7', '8', '9', 'C'},
   {'*', '0', '#', 'D'}
 };
-
 byte rowPins[ROW_NUM] = {23, 22, 4, 21}; // GPIO19, GPIO18, GPIO5, GPIO17 connect to the row pins
 byte colPins[COLUMN_NUM] = {19, 18, 5, 17};   // GPIO16, GPIO4, GPIO0, GPIO2 connect to the column pins
 
-  // kypad object
+// kypad object
 Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROW_NUM, COLUMN_NUM );
-
-HTTPClient https;
-int httpResponseCode;
-String set_password; // To hold platform set password
-String input_password;  // To hold keypad input password
-String httpRequestData;
-  // controls init
-int wrong_tone_frequency = 600;
-int right_tone_frequency = 1200;
+// wifi handler object
 WiFiClientSecure *client = new WiFiClientSecure;
 //----------------------------------------
 
@@ -93,7 +92,7 @@ void setup() {
     Serial.println(F("Setup Servo1 failed"));
 
   // setting up custom I2C pins
-//  Wire.begin(I2C_SDA, I2C_SCL);
+  // Wire.begin(I2C_SDA, I2C_SCL);
 
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
     Serial.println(F("SSD1306 allocation failed"));
@@ -140,23 +139,116 @@ void setup() {
   // server initialization
   Serial.println("Server started");
   Serial.println(WiFi.localIP());
-  Serial.println("");
-  Serial.print("connecting...");
+  Serial.print("\nconnecting...");
+  delay(2000);
+  Serial.print("\nServer connected!");
   delay(1000);
+  Serial.print("\n\nInitialising password input field ");
+  delay(2000);
+  while(countflag<=2){ // initialising input fields
+    Serial.print(".");
+    countflag++;
+    delay(2000);
+  }
+  Serial.print("\n\nEnter door password(press # to submit): ");
 }
 
 void loop() {
   //read from keypad
   key = keypad.getKey();
 
+                                  // initialising keypad for pasword entries  
+  if (key) {                      // if keypad is pressed
+    Serial.print(key);
+  
+    if (key == '*') {             // initialize keypad to receiving new inputs mode
+      input_password = "";        // clear input password
+    } 
+    else if (key == '#') {        // if keypad 'okay' btn is pressed
+      Serial.print("\nEntered password: "+input_password+"\n");
+      
+                                  // Initialize password verification
+      Serial.print("\n\nVerifying password ");
+      delay(2000);
+      countflag = 0;       // reset count control flag
+      while(countflag<=2){ // initialising input fields
+        Serial.print(".");
+        countflag++;
+        delay(2000);
+      }
+      Serial.print("\nDone!\n ");
+      Serial.print("\nLoading server information(please wait...)\n ");
+      
+      secureClientSetup();        // invokes client setup handler
+      
+      if(set_password == input_password){// if password correct
+                                  // authentication confirm
+        Serial.print("\nPASSWORD AUTHENTICATION STATUS:\n");
+        Serial.println(" -Success! \n -Password correct.\n");
+        
+                                  // Call door state control handler
+        doorControl(door_state, set_password, input_password);
+        
+        Serial.print("\n\n---------------SUCCESS!!------------------\n");
+      } 
+      else {// if password wrong
+        Serial.print("\nPASSWORD AUTHENTICATION STATUS:\n");
+        Serial.print(" -Incorrect password! \n\nPlease try again. \n\nInput field ready...\nRe-enter password(press # to submit):");
+      }
+  
+      input_password = "";      // empty input password holder 
+    } 
+    else {
+      input_password += key;    // append new character to input password string
+    }
+  }
+}
+
+/*
+ * GET request function -----------------------------------------
+ */
+String httpGETRequest(const char* serverName) {
+  //Specify content-type header
+  https.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+  //----------------------------------------Prepare HTTP Request
+  httpRequestData = "pbtn_API_KEY=" + String(API_KEY) + "&pbtn_status=" + door_control_status + "";
+  // Send POST request
+  httpResponseCode = https.POST(httpRequestData);
+  Serial.print("\nPOST request data: \n\t-API Key: "+String(API_KEY)+"\n\t-Door control signal: "+ door_control_status + "\n");
+  //----------------------------------------
+
+  //----------------------------------------GET HTTP Request
+  if (httpResponseCode == 200) { //initialize payload if GET data is available
+    Serial.print("HTTP Response code: ");
+    Serial.println(httpResponseCode);
+    payload = https.getString();
+  }
+  else {                      //error if no GET data
+    Serial.print("Error code: ");
+    Serial.println(httpResponseCode);
+  }
+  // Free resources
+  https.end();
+
+  return payload;
+  //----------------------------------------
+}
+
+/*
+ * Secure client setup handler -----------------------------------------
+ */
+void secureClientSetup(){
+
   if(client){
                                    // set secure client via root cert
     client->setCACert(root_cacert);
                                    //create an HTTPClient instance
                                    //Initializing an HTTPS communication using the secure client
-    Serial.print("[HTTPS] begin...\n");
     if(https.begin(*client, server_url)){
-
+      if(set_password == input_password){// set door status to HIGH if password correct
+        door_control_status = "1";
+      }
                                     // call http server handler function
       door_data = httpGETRequest(server_url);
       
@@ -179,34 +271,8 @@ void loop() {
         door_status = "Closed!";
       }
       Serial.println("\nDoor state: " + door_status);
-      Serial.println("\nDoor password: " + set_password);
+      Serial.println("Platform set door password: " + set_password);
       
-      if (key) {                    // if keypad is pressed
-        Serial.println(key);
-      
-        if (key == '*') {           // initialize keypad to receiving new inputs mode
-          input_password = "";      // clear input password
-        } 
-        else if (key == '#') {    // if keypad 'okay' btn is pressed
-          if(set_password == input_password){
-                                    // change door control status if correct password
-            door_control_status = "1";
-            Serial.print("\nEntered password: "+input_password+"\n");
-            Serial.println("Success! Password match the set password.");
-          } 
-          else {
-            Serial.print("\nEntered password: "+input_password+"\n");
-            Serial.println("The password is incorrect, try again");
-          }
-                                    // Calls door state control handler
-          doorControl(door_state, set_password, input_password);
-      
-          input_password = "";      // clear input password
-        } 
-        else {
-          input_password += key;    // append new character to input password string
-        }
-      }
     }
     else {
       Serial.printf("[HTTPS] Unable to connect\n");
@@ -214,48 +280,16 @@ void loop() {
   }
   else {
     Serial.printf("[HTTPS] Unable to connect\n");
-  }
-  // wait a 2 seconds between readings
-  // delay(20);
+  }  
+}
   
-}
-
-
-//  GET request function
-String httpGETRequest(const char* serverName) {
-  //Specify content-type header
-  https.addHeader("Content-Type", "application/x-www-form-urlencoded");
-
-  //----------------------------------------Prepare HTTP Request
-  httpRequestData = "pbtn_API_KEY=" + String(API_KEY) + "&pbtn_status=" + door_control_status + "";
-  // Send POST request
-  httpResponseCode = https.POST(httpRequestData);
-  Serial.print("\nData request: ");
-  Serial.print(httpRequestData);
-  Serial.println("");
-  //----------------------------------------
-
-  //----------------------------------------GET HTTP Request
-  if (httpResponseCode == 200) { //initialize payload if GET data is available
-    Serial.print("HTTP Response code: ");
-    Serial.println(httpResponseCode);
-    payload = https.getString();
-  }
-  else {                      //error if no GET data
-    Serial.print("Error code: ");
-    Serial.println(httpResponseCode);
-  }
-  // Free resources
-  https.end();
-
-  return payload;
-  //----------------------------------------
-}
-//Control door based on platform set parameters
+/*
+ * Smart door control handler -----------------------------------------
+ */
 void doorControl(String door_ctrl_state, String door_password, String input_password){
-  if(door_ctrl_state == "1" || door_password == input_password){//door open controls and signals
+  if(door_ctrl_state == "1" || door_password == input_password){//if door password is correct and control signal HIGH
     tone32.playTone(right_tone_frequency);
-    Serial.println("The password is correct");
+    Serial.println("\nDoor event control initialising\n");
     display.clearDisplay();
     display.setTextColor(WHITE);
     display.setTextSize(1);
