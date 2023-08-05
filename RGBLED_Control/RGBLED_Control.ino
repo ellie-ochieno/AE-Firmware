@@ -108,40 +108,30 @@ void loop() {
         blink_interval=(const int)(json_rgbled_data["blink_interval"]);
         rgb_toggle_val=(const char*)(json_rgbled_data["toggle_state"]);
         Serial.println("Blink interval: "+ String(blink_interval));
-        Serial.println("RGBLED toogel state: " + rgb_toggle_val);
+        Serial.println("RGBLED toggle state: " + rgb_toggle_val);
         // RGBLED color parameters
         redValue=(const int)(json_rgbled_data["rled_slider_val"]);
-        Serial.println("rled blink value"+ String(redValue));
+        Serial.println("\nRed led value: "+ String(redValue));
         greenValue=(const int)(json_rgbled_data["gled_slider_val"]);
-        Serial.println("gled blink value"+ String(greenValue));
+        Serial.println("Green led value: "+ String(greenValue));
         blueValue=(const int)(json_rgbled_data["bled_slider_val"]);
-        Serial.println("bled blink value"+ String(blueValue));
+        Serial.println("Blue led value: "+ String(blueValue)+"\n");
 
         if (rgb_toggle_val == "1") { //turn ON RGB LED
-          RGB_Color(100,200,100); //light RGB LED based on default color values
-          // light RGB LED based on color picker values if set
-          if ((redValue > 0) || (greenValue > 0) || (blueValue > 0)) {
-            RGB_Color(redValue,greenValue,blueValue);
-          }
+          // light RGB LED using color picker set values
+          RGB_Color(redValue,greenValue,blueValue);
           //blinks RGB LED based on platform set time interval
           if(blink_interval > 0){
-            RGB_Color(100,200,100);
+            RGB_Color(redValue,greenValue,blueValue);
             delay(blink_interval);
             RGB_Color(0,0,0);
             delay(blink_interval);
-            // blinks RGB LED based on color picker values if set
-            if ((redValue > 0) || (greenValue > 0) || (blueValue > 0)) {
-              RGB_Color(redValue,greenValue,blueValue);
-              delay(blink_interval);
-              RGB_Color(0,0,0);
-              delay(blink_interval);
-            }
           }
-          Serial.println("RGB LED status: ON");
+          Serial.println("\nRGB LED status: ON\n");
         }
         if (rgb_toggle_val == "0") { //turn OFF RGB LED
           RGB_Color(0,0,0);
-          Serial.println("RGB LED status: OFF");
+          Serial.println("\nRGB LED status: OFF\n");
         }
     }
     else {
