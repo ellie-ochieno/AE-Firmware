@@ -186,6 +186,7 @@ void loop() {
         Serial.print("\nPASSWORD AUTHENTICATION STATUS:\n");
         Serial.println(" -Success! \n -Password correct.\n");
         
+        servoIndex1 = 1;          // initialize servo to motion mode
                                   // Call door state control handler
         doorControl(door_state, set_password, input_password);
         
