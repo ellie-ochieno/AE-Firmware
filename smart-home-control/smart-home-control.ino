@@ -1,13 +1,21 @@
- /*
-* SMART DOOR CONTROL-------------------
+/*
+* SMART HOME KIT CONTROL==============================================
+* SMART DOOR CONTROL---------------
 * Use PUSH BUTTONS:
 *  -> Control door opening
 *     - Use keypad to input password
 *     - Compare the set password with platform set
+*     
+* RGBLED CONTROL-------------------
+* Use RGBLED:
+*  -> Control remotely
+*     - Toggle, Blink and light by specific color from platform set values
+*     
 * AMGAZA ELIMU - SH.PROJECT V2.0 / 023
 * ----------------------------------------
 */
 //----------------------------------------Support libraries and sensor parameters.
+// ---------General
 #include <SPI.h>
 #include <Wire.h>
 #include <WiFi.h>
@@ -22,6 +30,14 @@
 #include "pin_configurations.h"
 #include "ESP32_New_ISR_Servo.h"
 
+// ----------RGBLED
+#define R_channel 0
+#define G_channel 1
+#define B_channel 2
+#define pwm_Frequency 5000 // pwm frequency
+#define pwm_resolution 8 // 8 bit resolution
+
+// ----------smart-door
 #define PWM_CHANNEL 0
 // Published values for SG90 servos; adjust if needed
 #define MIN_MICROS  544 //544
@@ -44,6 +60,15 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 //----------------------------------------
 
 //----------------------------------------Control variables.
+// ---------General
+String payload;
+HTTPClient https;
+int project_optn;
+int httpResponseCode;
+String httpRequestData;
+WiFiClientSecure *client = new WiFiClientSecure;
+
+// ----------smart-door
 char key;
 int position;
 int countflag;
@@ -60,7 +85,7 @@ String httpRequestData;
 int wrong_tone_frequency = 600;// buzzer control tone
 int right_tone_frequency = 1200;// buzzer control tone
 String door_control_status = "0";
-const char* server_url="https://smart-home-iot.angazaelimu.com/api/door_state_control";
+const char* smartdoor_api_url="https://smart-home-iot.angazaelimu.com/api/door_state_control";
 
 // keypad configuration dfn
 char keys[ROW_NUM][COLUMN_NUM] = {
@@ -76,7 +101,18 @@ byte colPins[COLUMN_NUM] = {19, 18, 5, 17};   // GPIO16, GPIO4, GPIO0, GPIO2 con
 Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROW_NUM, COLUMN_NUM );
 // wifi handler object
 WiFiClientSecure *client = new WiFiClientSecure;
+
+// ----------RGBLED
+const char* rgb_api_url="https://smart-home-iot.angazaelimu.com/api/rgbled_state_control";
+WiFiClientSecure *client = new WiFiClientSecure;
+String rgbled_data;
+int blink_interval;
+String rgbled_data;
+int blink_interval;
+String rgb_toggle_val;
+String rgb_toggle_val;
 //----------------------------------------
+
 
 
 void setup() {
@@ -108,12 +144,13 @@ void setup() {
   display.print("Smart Home");
   display.display();
   delay(200);
-
-  WiFi.begin(SSID,PASSWORD);
-
+  
+  //signal LED initial state dfn
   pinMode(ONBOARD_LED_PIN,OUTPUT);     //--> On Board LED port Direction output
   digitalWrite(ONBOARD_LED_PIN, HIGH); //--> Turn off Led On Board
 
+  // WIFI connection control---------------
+  WiFi.begin(SSID,PASSWORD);
   Serial.print("Connecting.");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -143,10 +180,22 @@ void setup() {
   delay(2000);
   Serial.print("\nServer connected!");
   delay(1000);
+
+  // project prompt
+  Serial.println("\nSelect the project to execute:");
+  Serial.println("\t1. RGB LED smartlightts control\n\t2. Smart door control\n\t3. Smart window control\n\t4. Intrusion detection");
+  Serial.print("Enter your choice(1 or 2): ");
+  // keypad initialization
   Serial.print("\n\nInitialising password input field ");
-  eventInitialize(2000);  // invoke input fields initializer
+  delay(2000);
+  while(countflag<=2){ // initialising input fields
+    Serial.print(".");
+    countflag++;
+    delay(2000);
+  }
   Serial.print("\n\nEnter door password(press # to submit): ");
 }
+
 
 void loop() {
   //read from keypad
@@ -164,7 +213,13 @@ void loop() {
       
                                   // Initialize password verification
       Serial.print("\n\nVerifying password ");
-      eventInitialize(2000);  // invoke input fields initializer
+      delay(2000);
+      countflag = 0;       // reset count control flag
+      while(countflag<=2){ // initialising input fields
+        Serial.print(".");
+        countflag++;
+        delay(2000);
+      }
       Serial.print("\nDone!\n ");
       Serial.print("\nLoading server information(please wait...)\n ");
       
@@ -277,10 +332,8 @@ void secureClientSetup(){
  */
 void doorControl(String door_ctrl_state, String door_password, String input_password){
   if(door_ctrl_state == "1" || door_password == input_password){//if door password is correct and control signal HIGH
-    Serial.print("\nInitialising door opening ");
-    eventInitialize(1000);  // invoke event initializer
-    Serial.print("\n");
     tone32.playTone(right_tone_frequency);
+    Serial.println("\nDoor event control initialising\n");
     display.clearDisplay();
     display.setTextColor(WHITE);
     display.setTextSize(1);
@@ -335,16 +388,5 @@ void doorControl(String door_ctrl_state, String door_password, String input_pass
       display.setCursor(0,20);
       display.print(" Try Again ");
       display.display();
-    }
-  }
-  
- // control event initialising handler
- void eventInitialize(int ctl_time){
-    delay(ctl_time);
-    countflag = 0;       // reset count control flag
-    while(countflag<=2){ // initialising input fields
-      Serial.print(".");
-      countflag++;
-      delay(ctl_time);
     }
   }

@@ -9,7 +9,7 @@
 #define INB_PIN 35  //D4
 #define MQ2_PIN 34  //A8
 #define PIR_PIN 39  //D2
-#define SERVO_PIN 4 //A10
+#define SERVO_PIN 0 //A10
 
 #define RED_PIN 16  //A6
 #define BLUE_PIN 19  //A7
