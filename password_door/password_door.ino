@@ -52,7 +52,7 @@ HTTPClient https;
 String door_data;
 String door_state;
 String door_status;  
-int servoIndex1 = 1;
+int servoIndex1 = -1;
 String set_password; // To hold platform set password
 int httpResponseCode;
 String input_password;  // To hold keypad input password
@@ -78,7 +78,6 @@ Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROW_NUM, COLUMN_NUM 
 WiFiClientSecure *client = new WiFiClientSecure;
 //----------------------------------------
 
-
 void setup() {
   Serial.begin(115200);
   input_password.reserve(32); // maximum input characters is 33, change if needed
@@ -92,7 +91,7 @@ void setup() {
     Serial.println(F("Setup Servo1 failed"));
 
   // setting up custom I2C pins
-   Wire.begin(I2C_SDA, I2C_SCL);
+  // Wire.begin(I2C_SDA, I2C_SCL);
 
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
     Serial.println(F("SSD1306 allocation failed"));
@@ -145,7 +144,10 @@ void setup() {
   delay(1000);
   Serial.print("\n\nInitialising password input field ");
   eventInitialize(2000);  // invoke input fields initializer
-  Serial.print("\n\nEnter door password(press # to submit): ");
+  Serial.print("\n\nEnter door password ");
+  Serial.print("\n->Press # to submit or");
+  Serial.print("\n->Press * to clear password and start new entries");
+  Serial.print("\nPassword: ");
 }
 
 void loop() {
@@ -160,29 +162,65 @@ void loop() {
       input_password = "";        // clear input password
     } 
     else if (key == '#') {        // if keypad 'okay' btn is pressed
-      Serial.print("\nEntered password: "+input_password+"\n");
+      Serial.print("\nOk!");
+      Serial.print("\n\nEntered password: "+input_password+"\n");
       
                                   // Initialize password verification
-      Serial.print("\n\nVerifying password ");
+      Serial.print("\nVerifying password ");
       eventInitialize(2000);  // invoke input fields initializer
       Serial.print("\nDone!\n ");
-      Serial.print("\nLoading server information(please wait...)\n ");
+      Serial.print("\nLoading server information...(please wait!)\n ");
       
       secureClientSetup();        // invokes client setup handler
       
       if(set_password == input_password){// if password correct
                                   // authentication confirm
-        Serial.print("\nPASSWORD AUTHENTICATION STATUS:\n");
-        Serial.println(" -Success! \n -Password correct.\n");
+        Serial.print("\nPASSWORD AUTHENTICATION STATUS-----------\n");
+        Serial.print("-Success! \n-Password correct.\n");
+        Serial.print("\n-----------------------------------------\n");
         
                                   // Call door state control handler
         doorControl(door_state, set_password, input_password);
+
+        if(httpResponseCode == 200){ // if success connection 
+          Serial.print("\n\n---------------SUCCESS!!------------------\n");
+        }
+
+        // Next sequence
+        Serial.print("\n------------------------------------------\n");
+        if(httpResponseCode != 200){// if connection error
+          Serial.print("\nRe-loading input field");
+        }
+        if(httpResponseCode == 200){
+          Serial.print("\nLoading next sequence");
+        }
+        eventInitialize(2000);  // initializing next seqoence
         
-        Serial.print("\n\n---------------SUCCESS!!------------------\n");
+        // prompt for password to close the door
+        if(door_status == "Open!"){
+          Serial.println("\n\nDoor state: " + door_status);
+          Serial.print("\nEnter password to close the door.");
+          Serial.print("\n->Press # to submit or");
+          Serial.print("\n->Press * to clear password and start new entries");
+          Serial.print("\nPassword: ");
+        }
+        // prompt for password to open the door
+        if(door_status == "Closed!"){
+          Serial.println("\n\nDoor state: " + door_status);
+          Serial.print("\nEnter password to open the door.");
+          Serial.print("\n->Press # to submit or");
+          Serial.print("\n->Press * to clear password and start new entries");
+          Serial.print("\nPassword: ");
+        }
       } 
       else {// if password wrong
-        Serial.print("\nPASSWORD AUTHENTICATION STATUS:\n");
-        Serial.print(" -Incorrect password! \n\nPlease try again. \n\nInput field ready...\nRe-enter password(press # to submit):");
+        Serial.print("\nPASSWORD AUTHENTICATION STATUS-----------\n");
+        Serial.print("\nIncorrect password! \n");
+        Serial.print("\n-----------------------------------------\n");
+        Serial.print("\nPlease try again.");
+        Serial.print("\n->Press # to submit or");
+        Serial.print("\n->Press * to clear password and start new entries");
+        Serial.print("\nRe-enter password: ");
       }
   
       input_password = "";      // empty input password holder 
@@ -199,6 +237,13 @@ void loop() {
 String httpGETRequest(const char* serverName) {
   //Specify content-type header
   https.addHeader("Content-Type", "application/x-www-form-urlencoded");
+  
+  if((set_password == input_password) && (door_status == "Closed!")){// set door status to HIGH if password correct
+    door_control_status = "1";
+  }
+  if((set_password == input_password) && (door_status == "Open!")){// set door status to HIGH if password correct
+    door_control_status = "0";
+  }
 
   //----------------------------------------Prepare HTTP Request
   httpRequestData = "pbtn_API_KEY=" + String(API_KEY) + "&pbtn_status=" + door_control_status + "";
@@ -277,9 +322,6 @@ void secureClientSetup(){
  */
 void doorControl(String door_ctrl_state, String door_password, String input_password){
   if(door_ctrl_state == "1" || door_password == input_password){//if door password is correct and control signal HIGH
-    Serial.print("\nInitialising door opening ");
-    eventInitialize(1000);  // invoke event initializer
-    Serial.print("\n");
     tone32.playTone(right_tone_frequency);
     display.clearDisplay();
     display.setTextColor(WHITE);
@@ -290,28 +332,47 @@ void doorControl(String door_ctrl_state, String door_password, String input_pass
     display.setCursor(0,40);
     display.print("Right");
     display.display();
-                              // invoke door opening
     if (servoIndex1 != -1 ){
-      for (position = 0; position <= 180; position+=10){
-        // goes from 0 degrees to 180 degrees
-        // in steps of 10 degree
-        Serial.print(F("Servo1 pos = ")); Serial.print(position);
-        ESP32_ISR_Servos.setPosition(servoIndex1, position);
-
-        // waits 30ms for the servo to reach the position
-        delay(30);
+                                // invoke door opening if received open signal
+      if(door_control_status == "1"){   
+        if(httpResponseCode != 200){// in case of server connection error!
+          Serial.print("\nServer connection error!\nPlease try again. ");
+        } 
+        else{
+          Serial.print("\nInitialising door opening ");
+          eventInitialize(1000);  // invoke event initializer
+          Serial.print("\n");
+          for (position = 0; position <= 180; position+=10){
+            // goes from 0 degrees to 180 degrees
+            // in steps of 10 degree
+            Serial.print(F("Servo1 pos = ")); Serial.print(position);
+            ESP32_ISR_Servos.setPosition(servoIndex1, position);
+    
+            // waits 30ms for the servo to reach the position
+            delay(30);
+          }
+        }
+        delay(1000);
       }
-
-      delay(1000);
-
-      for (position = 180; position >= 0; position-=10){
-
-          Serial.print(F("Servo1 pos = ")); Serial.print(position);
-
-          ESP32_ISR_Servos.setPosition(servoIndex1, position);
-
-        // waits 30ms for the servo to reach the position
-        delay(30);
+                                // invoke door closing if received close signal
+      if(door_control_status == "0"){ 
+        if(httpResponseCode != 200){// in case of server connection error!
+          Serial.print("\nServer connection error!\nPlease try again. ");
+        } 
+        else{
+          Serial.print("\nInitialising door closing ");
+          eventInitialize(1000);  // invoke event initializer
+          Serial.print("\n");
+          for (position = 180; position >= 0; position-=10){
+    
+              Serial.print(F("Servo1 pos = ")); Serial.print(position);
+    
+              ESP32_ISR_Servos.setPosition(servoIndex1, position);
+    
+            // waits 30ms for the servo to reach the position
+            delay(30);
+          }
+        }
       }
       delay(1000);
       tone32.stopPlaying();
@@ -337,7 +398,7 @@ void doorControl(String door_ctrl_state, String door_password, String input_pass
       display.display();
     }
   }
-  
+
  // control event initialising handler
  void eventInitialize(int ctl_time){
     delay(ctl_time);
