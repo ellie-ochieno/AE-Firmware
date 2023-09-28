@@ -1,6 +1,6 @@
- /*
+/*
 * SMART DOOR CONTROL-------------------
-* Use PUSH BUTTONS:
+* Use KEYPAD:
 *  -> Control door opening
 *     - Use keypad to input password
 *     - Compare the set password with platform set
