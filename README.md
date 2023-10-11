@@ -1,6 +1,6 @@
 # AE-Firmware
 SMART FARM project firmware
-  - Micropython
-  - Raspberry pi pico
-  - MQTT&Lora protocols
+  - Language: Micropython
+  - Microcontroller: Raspberry pi pico
+  - Protocols: MQTT&Lora
   - /023
