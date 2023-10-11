@@ -4,9 +4,8 @@ SMART FARM project firmware
   - Microcontroller: Raspberry pi pico
   - Protocols: MQTT&Lora
   - /023
-    
-----------------
-# Support Files -----------------------------------
+
+# Support Files 
 ----------------
 1) secrets.py
   - All connection tokens for WiFi and MQTT broker are reserved here
