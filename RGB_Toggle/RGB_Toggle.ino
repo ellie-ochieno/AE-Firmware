@@ -2,8 +2,8 @@
 * RGNLED CONTROL-------------------
 * Use RGNLED:
 *  -> Control remotely
-*     - Toggle ON/OFF from the platform
-* AMGAZA ELIMU - SH.PROJECT V2.0 / 023
+*     - Toggle RGB ON/OFF from the platform
+* ANGAZA ELIMU - SH.PROJECT V2.0 / 023
 * ----------------------------------------
 */
 //----------------------------------------Support libraries and sensor parameters.
