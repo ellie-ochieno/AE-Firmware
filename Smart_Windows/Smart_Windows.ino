@@ -3,7 +3,7 @@
  * Control window based on:
  *    -> Set timer(Opening/Closing time)
  *    -> Rain state
- * AMGAZA ELIMU - SH. V2.0/023
+ * ANGAZA ELIMU - SH. V2.0/023
  * ----------------------------------------
  */
  //---------------------Support libraries and sensor parameters.
