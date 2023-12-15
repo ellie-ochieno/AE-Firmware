@@ -5,7 +5,7 @@
 *    -> Send the recorded data to the platform
 *    -> Set temperature threshold from the platform
 *    -> Use set threshod and recorded data to control fan
-* AMGAZA ELIMU - SH. PROJECT V2.0 / 023
+* ANGAZA ELIMU - SH. PROJECT V2.0 / 023
 * ----------------------------------------
 */
 //---------------------Support libraries and sensor parameters.
