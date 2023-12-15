@@ -5,7 +5,7 @@
 *     - Toggle ON/OFF
 *     - Blink using platform set interval
 *     - Schedule ON/OFF from platform using timer
-* AMGAZA ELIMU - SH.PROJECT V2.0 / 023
+* ANGAZA ELIMU - SH.PROJECT V2.0 / 023
 * ----------------------------------------
 */
 //----------------------------------------Support libraries and sensor parameters.
