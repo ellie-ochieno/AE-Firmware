@@ -3,7 +3,7 @@
 * Use RGBLED:
 *  -> Control remotely
 *     - Toggle, Blink and light by specific color from platform set values
-* AMGAZA ELIMU - SH.PROJECT V2.0 / 023
+* ANGAZA ELIMU - SH.PROJECT V2.0 / 023
 * ----------------------------------------
 */
 //----------------------------------------Support libraries and sensor parameters.
