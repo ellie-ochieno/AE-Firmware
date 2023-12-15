@@ -1,10 +1,10 @@
 /*
 * SMART SECURITY CONTROL-------------------
-* Use LRD sensor:
+* Use LDR sensor:
 *  -> Control remotely
 *     - Set LDR threshold value from the platform
 *     - Use set threshod to control turn ON/OFF of the light
-* AMGAZA ELIMU - SH.PROJECT V2.0 / 023
+* ANGAZA ELIMU - SH.PROJECT V2.0 / 023
 * ----------------------------------------
 */
 //----------------------------------------Support libraries and sensor parameters.
