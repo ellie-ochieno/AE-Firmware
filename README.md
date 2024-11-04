@@ -22,6 +22,8 @@ Once you’re logged in, you will be taken to the homepage. Click the Create Pro
 
 ![image alt](https://github.com/ellie-ochieno/AE-Firmware/blob/c32de850a9d1b5c0fb2c7ad2f03270d0d181f3fa/Images/Create%20project.png)
 
+In the Create Project page, you will need to create a name for your project and select the hardware for your project. For this project we will name it temperature and humidity. Also, give it a meaningful project description as done below and click on create.
+
 ![image alt](https://github.com/ellie-ochieno/AE-Firmware/blob/c32de850a9d1b5c0fb2c7ad2f03270d0d181f3fa/Images/temp_project.png)
 
 After Successful project creation you will get this popup.
