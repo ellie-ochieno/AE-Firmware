@@ -6,28 +6,13 @@
   - /023
 
 ## How to create a project on the Angaza Elimu Platform
-This registration page serves as the entry point for new users to create accounts on the Angaza Elimu platform. It collects essential information to enable users to access and utilize the platform's educational resources and services.
+Head over to the Angaza Elimu platform and register for an account. The registration page allows you to create a user profile for accessing the platform's features. [Angaza Elimu Platform](https://smart-home-iot.angazaelimu.com/)
 
 ![image alt](https://github.com/ellie-ochieno/AE-Firmware/blob/c32de850a9d1b5c0fb2c7ad2f03270d0d181f3fa/Images/Signup.png)
 
-## Fields Required
-1. Full Name:
-* Required field to capture the user's full name for identification purposes.
-
-2. Email Address:
-* Required field for communication with the user and account verification.
-
-3. Phone Number:
-* Required field for communication with the user and potential two-factor authentication.
-
-4. Password:
-* Required field for securing the user's account. Should adhere to strong password practices (e.g., length, complexity).
-
-5. Confirm Password:
-* Required field to ensure accurate password entry and prevent accidental errors.
 
 ## Login 
-This login page serves as the entry point for existing users to access their accounts on the Angaza Elimu platform. 
+Once registered, use your credentials to log in to the Angaza Elimu platform.
 
 ![image alt](https://github.com/ellie-ochieno/AE-Firmware/blob/c32de850a9d1b5c0fb2c7ad2f03270d0d181f3fa/Images/login.png)
 
