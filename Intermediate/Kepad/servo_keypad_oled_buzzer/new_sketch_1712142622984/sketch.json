@@ -1,0 +1,9 @@
+{
+  "cpu": {
+    "fqbn": "esp32:esp32:esp32s2:CDCOnBoot=default,CPUFreq=240,DFUOnBoot=default,DebugLevel=none,EraseFlash=none,FlashFreq=80,FlashMode=qio,FlashSize=4M,MSCOnBoot=default,PSRAM=disabled,PartitionScheme=default,UploadMode=default,UploadSpeed=921600",
+    "name": "ESP32S2 Dev Module",
+    "type": "serial"
+  },
+  "secrets": [],
+  "included_libs": []
+}
